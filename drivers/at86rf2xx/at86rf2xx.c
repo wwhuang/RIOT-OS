@@ -64,6 +64,7 @@ void at86rf2xx_reset(at86rf2xx_t *dev)
     /* get an 8-byte unique ID to use as hardware address */
     uuid_get(addr_long.uint8, IEEE802154_LONG_ADDRESS_LEN);
     /* make sure we mark the address as non-multicast and not globally unique */
+
     addr_long.uint8[0] &= ~(0x01);
     addr_long.uint8[0] |=  (0x02);
     /* set short and long address */
