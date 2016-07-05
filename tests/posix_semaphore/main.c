@@ -240,14 +240,14 @@ void test4(void)
     struct timespec abs;
     uint64_t now, start, stop;
     const uint64_t exp = 1000000;
-    now = xtimer_now64();
+    now = xtimer_now_usec64();
     abs.tv_sec = (time_t)((now / SEC_IN_USEC) + 1);
     abs.tv_nsec = (long)((now % SEC_IN_USEC) * 1000);
     puts("first: sem_init s1");
     if (sem_init(&s1, 0, 0) < 0) {
         puts("first: sem_init FAILED");
     }
-    start = xtimer_now64();
+    start = xtimer_now_usec64();
     puts("first: wait 1 sec for s1");
     if (sem_timedwait(&s1, &abs) != 0) {
         if (errno != ETIMEDOUT) {
@@ -258,7 +258,7 @@ void test4(void)
             puts("first: timed out");
         }
     }
-    stop = xtimer_now64() - start;
+    stop = xtimer_now_usec64() - start;
     if (stop < exp) {
         printf("first: waited only %" PRIu64 " usec => FAILED\n", stop);
     }
