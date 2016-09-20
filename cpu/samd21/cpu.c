@@ -37,11 +37,12 @@ static void clk_init(void)
     PM->APBAMASK.reg &= ~PM_AHBMASK_NVMCTRL;
 #endif
 
-    /* configure internal 8MHz oscillator to run without prescaler */
+	/* configure internal 8MHz oscillator to run without prescaler */
     SYSCTRL->OSC8M.bit.PRESC = 0;
     SYSCTRL->OSC8M.bit.ONDEMAND = 0;
     SYSCTRL->OSC8M.bit.RUNSTDBY = 0;
     SYSCTRL->OSC8M.bit.ENABLE = 1;
+
     while (!(SYSCTRL->PCLKSR.reg & SYSCTRL_PCLKSR_OSC8MRDY)) {}
 
 #if CLOCK_USE_PLL
@@ -56,7 +57,7 @@ static void clk_init(void)
                          GCLK_GENCTRL_SRC_OSC8M |
                          GCLK_GENCTRL_ID(1));
     GCLK->CLKCTRL.reg = (GCLK_CLKCTRL_GEN(1) |
-                         GCLK_CLKCTRL_ID(1) |
+                         GCLK_CLKCTRL_ID(GCLK_CLKCTRL_ID_GCLK_DPLL_Val) |
                          GCLK_CLKCTRL_CLKEN);
     while (GCLK->STATUS.reg & GCLK_STATUS_SYNCBUSY) {}
 
@@ -81,6 +82,20 @@ static void clk_init(void)
                          GCLK_GENCTRL_ID(0));
 #endif
 
+    //** hskim: enable RTC to use clock generator 2 as its source for low power mode
+    /*GCLK->GENCTRL.reg = (GCLK_GENCTRL_GENEN |
+                         GCLK_GENCTRL_SRC_OSCULP32K |
+                         GCLK_GENCTRL_ID(2));
+    GCLK->CLKCTRL.reg = (GCLK_CLKCTRL_GEN(2) |
+                         GCLK_CLKCTRL_ID(GCLK_CLKCTRL_ID_GCLK_RTC_Val) |
+                         GCLK_CLKCTRL_CLKEN);
+
+    ** hskim: RTC setting (1kHz)
+    RTC->MODE0.CTRL.reg = (RTC_MODE0_CTRL_MODE(RTC_MODE0_CTRL_MODE_COUNT32_Val) |
+						 RTC_MODE0_CTRL_PRESCALER(RTC_MODE0_CTRL_PRESCALER_DIV32_Val));				 
+    RTC->MODE0.CTRL.reg |= RTC_MODE0_CTRL_ENABLE;*/
+						 
+ 
     /* make sure we synchronize clock generator 0 before we go on */
     while (GCLK->STATUS.reg & GCLK_STATUS_SYNCBUSY) {}
 

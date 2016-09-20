@@ -39,7 +39,7 @@
 #include <auto_init.h>
 #endif
 
-volatile int lpm_prevent_sleep = 0;
+volatile int lpm_prevent_sleep = 1; // hskim: prevent sleep first to execute main thread
 
 extern int main(void);
 static void *main_trampoline(void *arg)
@@ -57,6 +57,7 @@ static void *main_trampoline(void *arg)
 
     LOG_INFO("main(): This is RIOT! (Version: " RIOT_VERSION ")\n");
 
+	lpm_prevent_sleep = 0; // hskim: low power
     main();
     return NULL;
 }
@@ -67,12 +68,14 @@ static void *idle_thread(void *arg)
 
     while (1) {
         if (lpm_prevent_sleep) {
-            lpm_set(LPM_IDLE);
+            lpm_set(LPM_IDLE); // Go to Idle mode (hamilton, main clock on)
         }
-        else {
-            lpm_set(LPM_IDLE);
+        else { 
+			lpm_set(LPM_OFF); // Go to standby mode (hamilton, main clock off)
+			/* lpm_set(LPM_IDLE); */
             /* lpm_set(LPM_SLEEP); */
             /* lpm_set(LPM_POWERDOWN); */
+
         }
     }
 

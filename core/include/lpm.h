@@ -62,6 +62,7 @@ void lpm_end_awake(void);
  * @brief   Returns the current power mode
  * @return  Current power mode
  */
+
 enum lpm_mode lpm_get(void);
 
 /**

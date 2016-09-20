@@ -92,6 +92,7 @@ void lpm_arch_begin_awake(void);
  */
 void lpm_arch_end_awake(void);
 
+
 #ifdef __cplusplus
 }
 #endif

@@ -67,6 +67,7 @@ __attribute__((weak)) void post_startup (void)
 {
 }
 
+
 void reset_handler_default(void)
 {
     uint32_t *dst;
@@ -97,7 +98,9 @@ void reset_handler_default(void)
     post_startup();
 
     /* initialize the board (which also initiates CPU initialization) */
+    // hskim: need to be modified for low power (6.35mA)
     board_init();
+
 
 #if MODULE_NEWLIB
     /* initialize std-c library (this must be done after board_init) */

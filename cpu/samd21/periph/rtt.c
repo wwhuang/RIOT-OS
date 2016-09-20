@@ -61,27 +61,27 @@ void rtt_init(void)
 
     /* RTC uses External 32,768KHz Oscillator because OSC32K isn't accurate
      * enough (p1075/1138). Also keep running in standby. */
-    SYSCTRL->XOSC32K.reg =  SYSCTRL_XOSC32K_ONDEMAND |
+/*    SYSCTRL->XOSC32K.reg =  //SYSCTRL_XOSC32K_ONDEMAND |
                             SYSCTRL_XOSC32K_EN32K |
                             SYSCTRL_XOSC32K_XTALEN |
                             SYSCTRL_XOSC32K_STARTUP(6) |
 #if RTT_RUNSTDBY
                             SYSCTRL_XOSC32K_RUNSTDBY |
 #endif
-                            SYSCTRL_XOSC32K_ENABLE;
+                            SYSCTRL_XOSC32K_ENABLE;*/
 
-    /* Setup clock GCLK2 with divider 1 */
-    GCLK->GENDIV.reg = GCLK_GENDIV_ID(2) | GCLK_GENDIV_DIV(1);
+    /* Setup clock GCLK2 with divider 32 = 1.024kHz */
+    GCLK->GENDIV.reg = GCLK_GENDIV_ID(2) | GCLK_GENDIV_DIV(0);
     while (GCLK->STATUS.bit.SYNCBUSY) {}
-
-    /* Enable GCLK2 with XOSC32K as source. Use divider without modification
-     * and keep running in standby. */
-    GCLK->GENCTRL.reg = GCLK_GENCTRL_ID(2) |
+    /* Enable GCLK2 with XOSC32K as source. Use divider without modification */
+    GCLK->GENCTRL.reg = (GCLK_GENCTRL_ID(2) |
                         GCLK_GENCTRL_GENEN |
 #if RTT_RUNSTDBY
                         GCLK_GENCTRL_RUNSTDBY |
 #endif
-                        GCLK_GENCTRL_SRC_XOSC32K;
+                        GCLK_GENCTRL_SRC_OSCULP32K |
+						GCLK_GENCTRL_DIVSEL);
+
     while (GCLK->STATUS.bit.SYNCBUSY) {}
 
     /* Connect GCLK2 to RTC */
@@ -89,6 +89,7 @@ void rtt_init(void)
                         GCLK_CLKCTRL_CLKEN |
                         GCLK_CLKCTRL_ID(RTC_GCLK_ID);
     while (GCLK->STATUS.bit.SYNCBUSY) {}
+    //printf("%2x %lu %2x %u\n", SYSCTRL->XOSC32K.reg, GCLK->GENCTRL.reg, GCLK->CLKCTRL.reg, RTT_RUNSTDBY);
 
     /* Disable RTC */
     rtt_poweroff();
@@ -98,7 +99,8 @@ void rtt_init(void)
     while (rtcMode0->STATUS.bit.SYNCBUSY || rtcMode0->CTRL.bit.SWRST) {}
 
     /* Configure as 32bit counter with no prescaler and no clear on match compare */
-    rtcMode0->CTRL.reg = RTC_MODE0_CTRL_MODE_COUNT32 | RTC_MODE0_CTRL_PRESCALER_DIV1;
+    rtcMode0->CTRL.reg = (RTC_MODE0_CTRL_MODE_COUNT32 | 
+						 RTC_MODE0_CTRL_PRESCALER_DIV32);
     while (rtcMode0->STATUS.bit.SYNCBUSY) {}
 
     /* Setup interrupt */

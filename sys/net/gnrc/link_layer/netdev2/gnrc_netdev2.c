@@ -106,6 +106,7 @@ static void _pass_on_packet(gnrc_pktsnip_t *pkt)
  */
 static void *_gnrc_netdev2_thread(void *args)
 {
+    //uint8_t state = NETOPT_STATE_SLEEP; //hskim: low power
     DEBUG("gnrc_netdev2: starting thread\n");
 
     gnrc_netdev2_t *gnrc_netdev2 = (gnrc_netdev2_t*) args;
@@ -129,6 +130,10 @@ static void *_gnrc_netdev2_thread(void *args)
 
     /* initialize low-level driver */
     dev->driver->init(dev);
+
+    // hskim: low power
+    dev->driver->trxoff(dev);
+    printf("TRX off OK\n");
 
     /* start the event loop */
     while (1) {

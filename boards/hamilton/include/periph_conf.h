@@ -210,7 +210,7 @@ static const pwm_conf_t pwm_config[] = {
 #define RTT_IRQ_PRIO        10
 #define RTT_ISR             isr_rtc
 #define RTT_MAX_VALUE       (0xffffffff)
-#define RTT_FREQUENCY       (32768U)    /* in Hz. For changes see `rtt.c` */
+#define RTT_FREQUENCY       (1024U) /*(32768U)*/    /* in Hz. For changes see `rtt.c` */
 #define RTT_RUNSTDBY        (1)         /* Keep RTT running in sleep states */
 /** @} */
 

@@ -7,47 +7,136 @@
  */
 
 /**
- * @ingroup     cpu_samd21
+  * @ingroup     cpu_samd21
  * @{
  *
- * @file
+ * @file        lpm_arch.c
  * @brief       Implementation of the kernels power management interface
  *
  * @author      Thomas Eichinger <thomas.eichinger@fu-berlin.de>
+ * @author      Saurabh Singh <saurabh@cezy.co>
  *
  * @}
  */
 
 #include "arch/lpm_arch.h"
+#include "cpu.h"
+
+uint8_t always_on = 1;
+
+enum system_sleepmode {
+    /**
+     *  Idle 0 mode.
+     *  Potential Wake Up sources: Synchronous(APB, AHB), asynchronous.
+     */
+    SYSTEM_SLEEPMODE_IDLE_0,
+    /**
+     *  Idle 1 mode.
+     *  Potential Wake Up sources: Synchronous (APB), asynchronous
+     */
+    SYSTEM_SLEEPMODE_IDLE_1,
+    /**
+     *  Idle 2 mode.
+     *  Potential Wake Up sources: Asynchronous
+     */
+    SYSTEM_SLEEPMODE_IDLE_2,
+    /**
+     * Standby mode.
+     * Potential Wake Up sources: Asynchronous
+     */
+    SYSTEM_SLEEPMODE_STANDBY,
+};
+
+static enum lpm_mode current_mode;
+
+static void start_lpm(void);
+
 
 void lpm_arch_init(void)
 {
-    // TODO
+    current_mode = LPM_ON;
 }
+
 
 enum lpm_mode lpm_arch_set(enum lpm_mode target)
 {
-    // TODO
-    return 0;
+	enum lpm_mode last_mode = current_mode;
+
+	/*if (always_on == 1)
+		target = LPM_IDLE;*/
+    
+	switch (target) {
+        case LPM_ON:                    /* Run mode */
+            current_mode = LPM_ON;
+            break;
+        case LPM_IDLE:                  /* Sleep mode Idle 0 */
+            current_mode = LPM_IDLE;
+            /* Idle Mode 0 */
+            SCB->SCR &= ~SCB_SCR_SLEEPDEEP_Msk;
+            PM->SLEEP.reg = SYSTEM_SLEEPMODE_IDLE_0;
+            start_lpm();
+            break;
+        case LPM_SLEEP:                 /* Sleep mode Idle 1 */
+            current_mode = LPM_SLEEP;
+             /* Idle Mode 1 */
+            SCB->SCR &= ~SCB_SCR_SLEEPDEEP_Msk;
+            PM->SLEEP.reg = SYSTEM_SLEEPMODE_IDLE_1;
+            start_lpm();
+            break;
+        case LPM_POWERDOWN:             /* Sleep mode Idle 2 */
+            /* Idle Mode 2 */
+            current_mode = LPM_POWERDOWN;
+            SCB->SCR &= ~SCB_SCR_SLEEPDEEP_Msk;
+            PM->SLEEP.reg = SYSTEM_SLEEPMODE_IDLE_2;
+            start_lpm();
+            break;
+        case LPM_OFF:                   /* Standby Mode - Potential Wake Up sources: Asynchronous */
+            current_mode = LPM_OFF;
+            /* Standby Mode */
+            SCB->SCR |=  SCB_SCR_SLEEPDEEP_Msk;
+            start_lpm();
+            break;
+        default:
+            break;
+    }
+
+    return last_mode;
 }
+
+
+static void start_lpm(void)
+{
+    /* Executes a device DSB (Data Synchronization Barrier) */
+    __DSB();
+    /* Enter standby mode */
+    __WFI();
+}
+
 
 enum lpm_mode lpm_arch_get(void)
 {
-    // TODO
-    return 0;
+    return current_mode;
 }
 
 void lpm_arch_awake(void)
 {
-    // TODO
+    if (current_mode == LPM_SLEEP) {
+        /* Re-init */
+        cpu_init();
+    }
+    current_mode = LPM_ON;
 }
 
-void lpm_arch_begin_awake(void)
-{
-    // TODO
+/** Not needed */
+void lpm_arch_begin_awake(void){ 
+	if (always_on == 1)
+		always_on = 0;
+	else
+		always_on = 1;
 }
 
-void lpm_arch_end_awake(void)
-{
-    // TODO
+/** Not needed */
+void lpm_arch_end_awake(void){ 
+	always_on = 0;
 }
+
