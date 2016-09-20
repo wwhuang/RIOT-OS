@@ -105,6 +105,7 @@ extern "C" {
 #define AT86RF2XX_STATE_TRX_OFF      (0x08)     /**< idle */
 #define AT86RF2XX_STATE_PLL_ON       (0x09)     /**< ready to transmit */
 #define AT86RF2XX_STATE_SLEEP        (0x0f)     /**< sleep mode */
+#define AT86RF2XX_STATE_PREP_DEEP_SLEEP (0x10)  /**< preparing deep sleep*/ 
 #define AT86RF2XX_STATE_BUSY_RX_AACK (0x11)     /**< busy receiving data */
 #define AT86RF2XX_STATE_BUSY_TX_ARET (0x12)     /**< busy transmitting data */
 #define AT86RF2XX_STATE_RX_AACK_ON   (0x16)     /**< wait for incoming data */

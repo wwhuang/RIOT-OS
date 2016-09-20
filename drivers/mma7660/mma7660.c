@@ -94,6 +94,7 @@ int mma7660_config_samplerate(mma7660_t *dev, uint8_t amsr, uint8_t awsr, uint8_
     }
     return 0;
 }
+
 int mma7660_config_pdet(mma7660_t *dev, uint8_t pdth, uint8_t enabled_axes) {
     int rv;
     char ch = pdth | ((~enabled_axes) & PDET_AXIS_MASK);
@@ -105,6 +106,7 @@ int mma7660_config_pdet(mma7660_t *dev, uint8_t pdth, uint8_t enabled_axes) {
     }
     return 0;
 }
+
 int mma7660_config_pd(mma7660_t *dev, uint8_t pd) {
     int rv;
     i2c_acquire(dev->i2c);
@@ -115,6 +117,7 @@ int mma7660_config_pd(mma7660_t *dev, uint8_t pd) {
     }
     return 0;
 }
+
 int mma7660_init(mma7660_t *dev, i2c_t i2c, uint8_t address) {
 
     // write device descriptor

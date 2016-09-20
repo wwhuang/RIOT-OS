@@ -47,6 +47,9 @@ static void _isr(netdev2_t *netdev);
 static int _get(netdev2_t *netdev, netopt_t opt, void *val, size_t max_len);
 static int _set(netdev2_t *netdev, netopt_t opt, void *val, size_t len);
 
+// hskim: low power
+static void _trxoff(netdev2_t *netdev);
+
 const netdev2_driver_t at86rf2xx_driver = {
     .send = _send,
     .recv = _recv,
@@ -54,7 +57,27 @@ const netdev2_driver_t at86rf2xx_driver = {
     .isr = _isr,
     .get = _get,
     .set = _set,
+    .trxoff = _trxoff, // hskim: low power
 };
+
+// hskim: low power
+static void _trxoff(netdev2_t* netdev) {
+    at86rf2xx_t *dev = (at86rf2xx_t *)netdev;
+    /*uint8_t tmp; 
+    
+    tmp = at86rf2xx_reg_read(dev, AT86RF2XX_REG__TRX_CTRL_1);
+    tmp &= ~(AT86RF2XX_TRX_CTRL_1_MASK__PA_EXT_EN);
+    at86rf2xx_reg_write(dev, AT86RF2XX_REG__TRX_CTRL_1, tmp);
+    
+    tmp = at86rf2xx_reg_read(dev, AT86RF2XX_REG__ANT_DIV);
+    tmp &= ~(AT86RF2XX_ANT_DIV_MASK__ANT_EXT_SW_EN);
+    at86rf2xx_reg_write(dev, AT86RF2XX_REG__ANT_DIV, tmp);*/
+
+    //at86rf2xx_force_trx_off(dev);
+	if (at86rf2xx_get_status(dev) != AT86RF2XX_STATE_SLEEP)
+	    at86rf2xx_set_state(dev, AT86RF2XX_STATE_SLEEP);
+    //at86rf2xx_set_state(dev, AT86RF2XX_STATE_PREP_DEEP_SLEEP);
+}
 
 static void _irq_handler(void *arg)
 {

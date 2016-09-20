@@ -457,7 +457,22 @@ void at86rf2xx_set_state(at86rf2xx_t *dev, uint8_t state)
         /* Go to SLEEP mode from TRX_OFF */
         gpio_set(dev->params.sleep_pin);
         dev->state = state;
-    } else {
+    } 
+    // hskim: low power
+    else if (state == AT86RF2XX_STATE_PREP_DEEP_SLEEP) {
+        /* First go to TRX_OFF */
+        at86rf2xx_force_trx_off(dev);
+        /* Discard all IRQ flags, framebuffer is lost anyway */
+        at86rf2xx_reg_read(dev, AT86RF2XX_REG__IRQ_STATUS);
+        // Go to PRE_DEEP_SLEEP from TRX_OFF
+        at86rf2xx_reg_write(dev, AT86RF2XX_REG__TRX_STATE, state);
+	while(at86rf2xx_get_status(dev) != AT86RF2XX_STATE_PREP_DEEP_SLEEP);
+        dev->state = state;   
+        /* Go to DEEP SLEEP mode from PREP_DEEP_SLEEP */
+        gpio_set(dev->params.sleep_pin);
+    }
+
+    else {
         _set_state(dev, state);
     }
 }

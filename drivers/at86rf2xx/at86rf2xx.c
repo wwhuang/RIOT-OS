@@ -38,6 +38,7 @@
 void at86rf2xx_setup(at86rf2xx_t *dev, const at86rf2xx_params_t *params)
 {
     netdev2_t *netdev = (netdev2_t *)dev;
+    
 
     netdev->driver = &at86rf2xx_driver;
     /* initialize device descriptor */
@@ -47,6 +48,7 @@ void at86rf2xx_setup(at86rf2xx_t *dev, const at86rf2xx_params_t *params)
     dev->pending_tx = 0;
     /* initialise SPI */
     spi_init_master(dev->params.spi, SPI_CONF_FIRST_RISING, params->spi_speed);
+
 }
 
 void at86rf2xx_reset(at86rf2xx_t *dev)
@@ -124,7 +126,14 @@ void at86rf2xx_reset(at86rf2xx_t *dev)
     /* don't populate masked interrupt flags to IRQ_STATUS register */
     uint8_t tmp = at86rf2xx_reg_read(dev, AT86RF2XX_REG__TRX_CTRL_1);
     tmp &= ~(AT86RF2XX_TRX_CTRL_1_MASK__IRQ_MASK_MODE);
+    // hskim: low power (leakage mitigation)
+    tmp &= ~(AT86RF2XX_TRX_CTRL_1_MASK__PA_EXT_EN);
     at86rf2xx_reg_write(dev, AT86RF2XX_REG__TRX_CTRL_1, tmp);
+    
+    // hskim: low power (leakage mitigation)
+    tmp = at86rf2xx_reg_read(dev, AT86RF2XX_REG__ANT_DIV);
+    tmp &= ~(AT86RF2XX_ANT_DIV_MASK__ANT_EXT_SW_EN);
+    at86rf2xx_reg_write(dev, AT86RF2XX_REG__ANT_DIV, tmp);
 
     /* disable clock output to save power */
     tmp = at86rf2xx_reg_read(dev, AT86RF2XX_REG__TRX_CTRL_0);
