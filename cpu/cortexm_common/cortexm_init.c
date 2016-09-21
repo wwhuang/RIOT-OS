@@ -61,7 +61,4 @@ void cortexm_init(void)
     SCB->CCR |= SCB_CCR_STKALIGN_Msk;
 #endif
 
-    // hskim: low power
-    /*SCB->SCR |= SCB_SCR_SLEEPDEEP_Msk;
-    __WFI();*/
 }

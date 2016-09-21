@@ -92,16 +92,6 @@ int at30ts74_init(at30ts74_t *dev, i2c_t i2c, uint8_t address, uint8_t bits);
 int at30ts74_read(at30ts74_t *dev, int32_t *temperature);
 
 
-/**
- * @brief   Turn off a AT30TS74 device (1uA) 
- *
- * @param[in] dev           device descriptor
- *
- * @return                   0 on success
- * @return                  -1 on error
- */
-int at30ts74_on(at30ts74_t *dev);
-
 
 #ifdef __cplusplus
 }

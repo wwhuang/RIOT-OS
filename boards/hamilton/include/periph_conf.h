@@ -63,21 +63,26 @@ extern "C" {
  *
  * @{
  */
-#define CLOCK_USE_PLL       (1)
+/*#define CLOCK_USE_PLL       (0)
 
 #if CLOCK_USE_PLL
-/* edit these values to adjust the PLL output frequency */
-#define CLOCK_PLL_MUL       (47U)               /* must be >= 31 & <= 95 */
-#define CLOCK_PLL_DIV       (1U)                /* adjust to your needs */
-/* generate the actual used core clock frequency */
+#define CLOCK_PLL_MUL       (47U)               // must be >= 31 & <= 95
+#define CLOCK_PLL_DIV       (1U)                // adjust to your need
 #define CLOCK_CORECLOCK     (((CLOCK_PLL_MUL + 1) * 1000000U) / CLOCK_PLL_DIV)
 #else
-/* edit this value to your needs */
 #define CLOCK_DIV           (1U)
-/* generate the actual core clock frequency */
 #define CLOCK_CORECLOCK     (8000000 / CLOCK_DIV)
-#endif
+#endif */
 /** @} */
+
+/* hskim: for hamilton */
+#define CLOCK_USE_FLL      (1)
+
+#if CLOCK_USE_FLL
+#define CLOCK_CORECLOCK     8000000U
+#else
+#define CLOCK_CORECLOCK     32768U
+#endif
 
 /**
  * @name Timer peripheral configuration
@@ -210,7 +215,7 @@ static const pwm_conf_t pwm_config[] = {
 #define RTT_IRQ_PRIO        10
 #define RTT_ISR             isr_rtc
 #define RTT_MAX_VALUE       (0xffffffff)
-#define RTT_FREQUENCY       (1024U) /*(32768U)*/    /* in Hz. For changes see `rtt.c` */
+#define RTT_FREQUENCY       (32768U)    /* in Hz. For changes see `rtt.c` */
 #define RTT_RUNSTDBY        (1)         /* Keep RTT running in sleep states */
 /** @} */
 

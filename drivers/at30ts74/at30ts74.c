@@ -71,20 +71,6 @@ int at30ts74_init(at30ts74_t *dev, i2c_t i2c, uint8_t address, uint8_t bits) {
     return 0;
 }
 
-// hskim: low power mode
-int at30ts74_on(at30ts74_t *dev) {
-    char tmp;
-    int res;
-    i2c_acquire(dev->i2c);
-    //tmp = (dev->bits << CFG_BITS_SHIFT) | (CFG_SHDWN);
-    tmp = (dev->bits << CFG_BITS_SHIFT) & (~CFG_SHDWN);
-    res = i2c_write_reg(dev->i2c, dev->address, REG_CFG_ADDR, tmp);
-    i2c_release(dev->i2c);
-    if (res < 1) 
-        return -1;
-    return 0;
-}
-
 int at30ts74_read(at30ts74_t *dev, int32_t *result)
 {
     char res[2];

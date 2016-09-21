@@ -46,8 +46,8 @@ void rtc_init(void)
 
     /* RTC uses External 32,768KHz Oscillator (OSC32K isn't accurate enough p1075/1138)*/
     // hskim: this oscillator always runs even in the stanby mode 
-    SYSCTRL->XOSC32K.reg =  //SYSCTRL_XOSC32K_ONDEMAND |
-                            (SYSCTRL_XOSC32K_EN32K |
+    SYSCTRL->XOSC32K.reg =  (SYSCTRL_XOSC32K_ONDEMAND |
+                            SYSCTRL_XOSC32K_EN32K |
                             SYSCTRL_XOSC32K_XTALEN |
 							SYSCTRL_XOSC32K_RUNSTDBY |
                             SYSCTRL_XOSC32K_STARTUP(6) |
