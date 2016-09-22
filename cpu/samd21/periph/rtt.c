@@ -86,6 +86,9 @@ void rtt_init(void)
     while (GCLK->STATUS.bit.SYNCBUSY) {}
     //printf("%2x %lu %2x %u\n", SYSCTRL->XOSC32K.reg, GCLK->GENCTRL.reg, GCLK->CLKCTRL.reg, RTT_RUNSTDBY);
 
+	
+	printf("RTT2\n");
+
     /* Disable RTC */
     rtt_poweroff();
 
@@ -98,11 +101,16 @@ void rtt_init(void)
 						 RTC_MODE0_CTRL_PRESCALER_DIV1);
     while (rtcMode0->STATUS.bit.SYNCBUSY) {}
 
+	printf("RTT3\n");
     /* Setup interrupt */
     NVIC_EnableIRQ(RTT_IRQ);
+printf("RTT4\n");
+
+
 
     /* Enable RTC */
     rtt_poweron();
+printf("RTT5\n");
 }
 
 void rtt_set_overflow_cb(rtt_cb_t cb, void *arg)
@@ -175,6 +183,7 @@ void rtt_poweron(void)
     RtcMode0 *rtcMode0 = &(RTT_DEV);
     rtcMode0->CTRL.bit.ENABLE = 1;
     while (rtcMode0->STATUS.bit.SYNCBUSY) {}
+printf("RTT6\n");
 }
 
 void rtt_poweroff(void)

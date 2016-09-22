@@ -136,6 +136,11 @@ static inline void xtimer_usleep64(uint64_t microseconds);
 static void xtimer_nanosleep(uint32_t nanoseconds);
 
 /**
+	hskim
+*/
+static void xtimer_ticksleep(uint32_t ticks);
+
+/**
  * @brief Stop execution of a thread for some time, blocking
  *
  * This function will spin-block, so only use it *very* short periods.

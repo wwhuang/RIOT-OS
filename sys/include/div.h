@@ -74,8 +74,10 @@ static inline uint64_t div_u64_by_1000000(uint64_t val)
  */
 static inline uint32_t div_u32_by_15625div512(uint32_t val)
 {
-    return ((uint64_t)(val) * 0x431bde83ul) >> (12 + 32 - 9);
+	return (uint32_t) ((uint64_t)val * 32768 / 1000000);
+    //return ((uint64_t)(val) * 0x431bde83ul) >> (12 + 32 - 9);
 }
+
 
 /**
  * @brief Integer divide val by 44488
@@ -98,6 +100,9 @@ static inline uint32_t div_u32_mod_44488(uint32_t val)
 {
     return val - (div_u32_by_44488(val)*44488);
 }
+
+
+
 
 #ifdef __cplusplus
 }

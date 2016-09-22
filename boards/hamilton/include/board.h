@@ -27,6 +27,7 @@
 #include "cpu.h"
 #include "periph_conf.h"
 #include "periph_cpu.h"
+#include "div.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -38,11 +39,14 @@ extern "C" {
 #define F_CPU               (CLOCK_CORECLOCK)
 
 /**
- * Assign the hardware timer
+ * Assign the hardware timer (
+   hskim: We use RTT for low power consumption
  */
-#define XTIMER              TIMER_1
-#define XTIMER_CHAN         (0)
-
+#define XTIMER_DEV                 TIMER_RTT // XTIMER operates based on RTT
+#define XTIMER_CHAN                (0)
+#define XTIMER_HZ                  32768UL   // XTIMER frequency is that of RTT
+#define XTIMER_USEC_TO_TICKS(value)    ( div_u32_by_15625div512(value) )
+#define XTIMER_TICKS_TO_USEC(value)    ( ((uint64_t)value * 15625)>>9 )
 /**
  * @name AT86RF233 configuration
  *

@@ -28,6 +28,7 @@
 #include "at86rf2xx_internal.h"
 #include "at86rf2xx_registers.h"
 
+#include "log.h"
 void at86rf2xx_reg_write(const at86rf2xx_t *dev,
                          const uint8_t addr,
                          const uint8_t value)
@@ -136,7 +137,6 @@ void at86rf2xx_hardware_reset(at86rf2xx_t *dev)
 {
     /* wake up from sleep in case radio is sleeping */
     at86rf2xx_assert_awake(dev);
-
     /* trigger hardware reset */
     gpio_clear(dev->params.reset_pin);
     xtimer_usleep(AT86RF2XX_RESET_PULSE_WIDTH);

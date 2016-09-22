@@ -113,8 +113,8 @@ void _xtimer_set64(xtimer_t *timer, uint32_t offset, uint32_t long_offset)
         }
 
         _xtimer_now64(&timer->target, &timer->long_target);
-        timer->target += offset;
-        timer->long_target += long_offset;
+        timer->target += offset;            /* hskim: Here offset should be a tick */
+        timer->long_target += long_offset;  /* hskim: Here offset should be a tick */
         if (timer->target < offset) {
             timer->long_target++;
         }
@@ -125,6 +125,7 @@ void _xtimer_set64(xtimer_t *timer, uint32_t offset, uint32_t long_offset)
                 timer->long_target, timer->target);
     }
 }
+
 
 void xtimer_set(xtimer_t *timer, uint32_t offset)
 {
@@ -141,7 +142,7 @@ void xtimer_set(xtimer_t *timer, uint32_t offset)
         _shoot(timer);
     }
     else {
-        uint32_t target = xtimer_now() + offset;
+        uint32_t target = xtimer_now() + XTIMER_USEC_TO_TICKS(offset); /* hskim: Here offset should be a tick */
         _xtimer_set_absolute(timer, target);
     }
 }
@@ -163,13 +164,17 @@ static inline void _lltimer_set(uint32_t target)
     if (_in_handler) {
         return;
     }
-    DEBUG("_lltimer_set(): setting %" PRIu32 "\n", _xtimer_lltimer_mask(target));
-#ifdef XTIMER_SHIFT
-    target = XTIMER_USEC_TO_TICKS(target);
+	DEBUG("_lltimer_set(): setting %" PRIu32 "\n", _xtimer_lltimer_mask(target));
+
+	/* hskim: we don't have to do this conversion since we have already done it */
+/*#ifdef XTIMER_SHIFT
+	target = XTIMER_USEC_TO_TICKS(target);
     if (!target) {
         target++;
-    }
-#endif
+	}
+#endif*/
+	/* hskim: This is the end of xtimer.
+		      Now this goes to timer.c of the corresponding cpu driver */
     timer_set_absolute(XTIMER_DEV, XTIMER_CHAN, _xtimer_lltimer_mask(target));
 }
 

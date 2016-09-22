@@ -79,7 +79,7 @@ extern "C" {
 #define CLOCK_USE_FLL      (1)
 
 #if CLOCK_USE_FLL
-#define CLOCK_CORECLOCK     8000000U
+#define CLOCK_CORECLOCK     48000000U
 #else
 #define CLOCK_CORECLOCK     32768U
 #endif
@@ -88,9 +88,10 @@ extern "C" {
  * @name Timer peripheral configuration
  * @{
  */
-#define TIMER_NUMOF         (2U)
-#define TIMER_0_EN          1
-#define TIMER_1_EN          1
+#define TIMER_NUMOF         (1U)
+#define TIMER_0_EN          0
+#define TIMER_1_EN          0
+#define TIMER_RTT_EN        1
 
 /* Timer 0 configuration */
 #define TIMER_0_DEV         TC3->COUNT16
@@ -213,7 +214,7 @@ static const pwm_conf_t pwm_config[] = {
 #define RTT_DEV             RTC->MODE0
 #define RTT_IRQ             RTC_IRQn
 #define RTT_IRQ_PRIO        10
-#define RTT_ISR             isr_rtc
+#define TIMER_RTT_ISR             isr_rtc
 #define RTT_MAX_VALUE       (0xffffffff)
 #define RTT_FREQUENCY       (32768U)    /* in Hz. For changes see `rtt.c` */
 #define RTT_RUNSTDBY        (1)         /* Keep RTT running in sleep states */

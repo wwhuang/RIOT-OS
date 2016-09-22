@@ -30,6 +30,7 @@
 #define ENABLE_DEBUG (0)
 #include "debug.h"
 
+#include "log.h"
 /**
  * @brief   Define stack parameters for the MAC layer thread
  * @{

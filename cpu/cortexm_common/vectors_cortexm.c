@@ -98,7 +98,6 @@ void reset_handler_default(void)
     post_startup();
 
     /* initialize the board (which also initiates CPU initialization) */
-    // hskim: need to be modified for low power (6.35mA)
     board_init();
 
 

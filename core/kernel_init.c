@@ -39,12 +39,16 @@
 #include <auto_init.h>
 #endif
 
-volatile int lpm_prevent_sleep = 1; // hskim: prevent sleep first to execute main thread
+/* hskim: prevent sleep first to execute main thread */
+volatile int lpm_prevent_sleep = 1; 
 
 extern int main(void);
 static void *main_trampoline(void *arg)
 {
     (void) arg;
+
+	/* hskim: low power */
+	lpm_prevent_sleep = 0; 
 
 #ifdef MODULE_AUTO_INIT
     auto_init();
@@ -57,7 +61,6 @@ static void *main_trampoline(void *arg)
 
     LOG_INFO("main(): This is RIOT! (Version: " RIOT_VERSION ")\n");
 
-	lpm_prevent_sleep = 0; // hskim: low power
     main();
     return NULL;
 }

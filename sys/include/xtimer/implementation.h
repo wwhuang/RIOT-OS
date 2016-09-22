@@ -24,6 +24,8 @@
 #endif
 
 #include "periph/timer.h"
+#include "board.h"
+#include "tick_conversion.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -33,13 +35,13 @@ extern "C" {
 extern volatile uint32_t _xtimer_high_cnt;
 #endif
 
-#if (XTIMER_SHIFT < 0)
+/*#if (XTIMER_SHIFT < 0)
 #define XTIMER_USEC_TO_TICKS(value) ( (value) << -XTIMER_SHIFT )
 #define XTIMER_TICKS_TO_USEC(value) ( (value) >> -XTIMER_SHIFT )
 #else
 #define XTIMER_USEC_TO_TICKS(value) ( (value) >> XTIMER_SHIFT )
 #define XTIMER_TICKS_TO_USEC(value) ( (value) << XTIMER_SHIFT )
-#endif
+#endif*/
 
 /**
  * @brief IPC message type for xtimer msg callback
@@ -47,15 +49,15 @@ extern volatile uint32_t _xtimer_high_cnt;
 #define MSG_XTIMER 12345
 
 /**
- * @brief returns the (masked) low-level timer counter value.
+ * @brief returns the (masked) low-level timer counter value. (tick)
  */
 static inline uint32_t _xtimer_lltimer_now(void)
 {
-#if XTIMER_SHIFT
+/*#if XTIMER_SHIFT
     return XTIMER_TICKS_TO_USEC((uint32_t)timer_read(XTIMER_DEV));
-#else
+#else*/
     return timer_read(XTIMER_DEV);
-#endif
+//#endif
 }
 
 /**
@@ -86,7 +88,7 @@ void _xtimer_sleep(uint32_t offset, uint32_t long_offset);
 #ifndef DOXYGEN
 /* Doxygen warns that these are undocumented, but the documentation can be found in xtimer.h */
 
-static inline uint32_t xtimer_now(void)
+static inline uint32_t xtimer_now(void) // ticks
 {
 #if XTIMER_MASK
     uint32_t latched_high_cnt, now;
@@ -116,6 +118,12 @@ static inline void xtimer_spin(uint32_t offset) {
 #endif
 }
 
+
+static inline void xtimer_sleep(uint32_t seconds)
+{
+    xtimer_usleep64((uint64_t)seconds * SEC_IN_USEC); 
+}
+
 static inline void xtimer_usleep(uint32_t microseconds)
 {
     _xtimer_sleep(microseconds, 0);
@@ -123,17 +131,19 @@ static inline void xtimer_usleep(uint32_t microseconds)
 
 static inline void xtimer_usleep64(uint64_t microseconds)
 {
-    _xtimer_sleep((uint32_t) microseconds, (uint32_t) (microseconds >> 32));
-}
-
-static inline void xtimer_sleep(uint32_t seconds)
-{
-    xtimer_usleep64((uint64_t)seconds * SEC_IN_USEC);
+    _xtimer_sleep((uint32_t) (microseconds), 
+				  (uint32_t) ((microseconds) >> 32));
 }
 
 static inline void xtimer_nanosleep(uint32_t nanoseconds)
 {
-    _xtimer_sleep(nanoseconds / USEC_IN_NS, 0);
+    _xtimer_sleep( (uint32_t) ((uint64_t)nanoseconds / USEC_IN_NS), 0);
+}
+
+
+static inline void xtimer_ticksleep(uint32_t offset)
+{
+	_xtimer_sleep(offset,0);
 }
 
 #endif /* !defined(DOXYGEN) */
