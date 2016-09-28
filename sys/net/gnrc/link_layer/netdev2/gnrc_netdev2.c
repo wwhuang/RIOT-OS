@@ -48,7 +48,6 @@ static void _pass_on_packet(gnrc_pktsnip_t *pkt);
 uint8_t radio_num = 0;
 kernel_pid_t RadioID[NETDEV2_RADIO_NUM];
 
-
 /**
  * @brief   Function called by the device driver on device events
  *
