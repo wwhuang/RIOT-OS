@@ -45,8 +45,8 @@ enum {
 #if TIMER_3_EN
     TIMER_3,                /**< 4th timer */
 #endif
-#if TIMER_RTT_EN            
-	TIMER_RTT,				/** hskim: RTT timer for low power consumption */
+#if TIMER_RTT_EN
+    TIMER_RTT,				      /** RTT timer  */
 #endif
     TIMER_UNDEFINED         /**< deprecated legacy undefined values */
 };

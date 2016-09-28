@@ -40,7 +40,7 @@ static rtt_state_t rtt_callback;
 /**
  * @brief Initialize RTT module
  *
- * The RTT is running at 32768 Hz by default, i.e. @ OSCULP32K frequency without
+ * The RTT is running at 32768 Hz by default, i.e. @ XOSC32K frequency without
  * divider. There are 2 cascaded dividers in the clock path:
  *
  *  - GCLK_GENDIV_DIV(n): between 1 and 31
@@ -52,8 +52,6 @@ static rtt_state_t rtt_callback;
  *  - GCLK_GENCTRL_DIVSEL = 0: Clock divided by GENDIV.DIV (default)
  *  - GCLK_GENCTRL_DIVSEL = 1: Clock divided by 2^( GENDIV.DIV + 1 )
  */
-
-
 void rtt_init(void)
 {
     RtcMode0 *rtcMode0 = &(RTT_DEV);
@@ -61,33 +59,36 @@ void rtt_init(void)
     /* Turn on power manager for RTC */
     PM->APBAMASK.reg |= PM_APBAMASK_RTC;
 
-    /* hskim: Setup Clock generator 2 with divider 1 (32.768kHz) */
-    GCLK->GENDIV.reg = GCLK_GENDIV_ID(2) | GCLK_GENDIV_DIV(0);
+    /* RTC uses External 32,768KHz Oscillator because OSC32K isn't accurate
+     * enough (p1075/1138). Also keep running in standby. */
+    SYSCTRL->XOSC32K.reg =  SYSCTRL_XOSC32K_ONDEMAND |
+                            SYSCTRL_XOSC32K_EN32K |
+                            SYSCTRL_XOSC32K_XTALEN |
+                            SYSCTRL_XOSC32K_STARTUP(6) |
+#if RTT_RUNSTDBY
+                            SYSCTRL_XOSC32K_RUNSTDBY |
+#endif
+                            SYSCTRL_XOSC32K_ENABLE;
+
+    /* Setup clock GCLK2 with divider 1 */
+    GCLK->GENDIV.reg = GCLK_GENDIV_ID(2) | GCLK_GENDIV_DIV(1);
     while (GCLK->STATUS.bit.SYNCBUSY) {}
 
-    /* hskim: Enable Clock generator 2 with OSCULP32K as source. */
-    /* hskim: Note that OSCULP32K is an always-on and ultra low power oscilator (115nA). 
-              So we can use this oscilator regardless of device status. 
-              The oscilator is somewhat inaccurate, but accurate enough for hamilton's usecases 
-    */ 
-    GCLK->GENCTRL.reg = (GCLK_GENCTRL_ID(2) |
+    /* Enable GCLK2 with XOSC32K as source. Use divider without modification
+     * and keep running in standby. */
+    GCLK->GENCTRL.reg = GCLK_GENCTRL_ID(2) |
                         GCLK_GENCTRL_GENEN |
 #if RTT_RUNSTDBY
                         GCLK_GENCTRL_RUNSTDBY |
 #endif
-                        GCLK_GENCTRL_SRC_OSCULP32K |
-						GCLK_GENCTRL_DIVSEL);
+                        GCLK_GENCTRL_SRC_XOSC32K;
     while (GCLK->STATUS.bit.SYNCBUSY) {}
 
-    /* hskim: Enable RTC with Clock generator 2 as source */
+    /* Connect GCLK2 to RTC */
     GCLK->CLKCTRL.reg = GCLK_CLKCTRL_GEN_GCLK2 |
                         GCLK_CLKCTRL_CLKEN |
                         GCLK_CLKCTRL_ID(RTC_GCLK_ID);
     while (GCLK->STATUS.bit.SYNCBUSY) {}
-    //printf("%2x %lu %2x %u\n", SYSCTRL->XOSC32K.reg, GCLK->GENCTRL.reg, GCLK->CLKCTRL.reg, RTT_RUNSTDBY);
-
-	
-	printf("RTT2\n");
 
     /* Disable RTC */
     rtt_poweroff();
@@ -96,21 +97,15 @@ void rtt_init(void)
     rtcMode0->CTRL.bit.SWRST = 1;
     while (rtcMode0->STATUS.bit.SYNCBUSY || rtcMode0->CTRL.bit.SWRST) {}
 
-    /* hskim: Configure RTC as 32bit counter with no prescaler (32.768kHz) no clear on match compare */
-    rtcMode0->CTRL.reg = (RTC_MODE0_CTRL_MODE_COUNT32 | 
-						 RTC_MODE0_CTRL_PRESCALER_DIV1);
+    /* Configure as 32bit counter with no prescaler and no clear on match compare */
+    rtcMode0->CTRL.reg = RTC_MODE0_CTRL_MODE_COUNT32 | RTC_MODE0_CTRL_PRESCALER_DIV1;
     while (rtcMode0->STATUS.bit.SYNCBUSY) {}
 
-	printf("RTT3\n");
     /* Setup interrupt */
     NVIC_EnableIRQ(RTT_IRQ);
-printf("RTT4\n");
-
-
 
     /* Enable RTC */
     rtt_poweron();
-printf("RTT5\n");
 }
 
 void rtt_set_overflow_cb(rtt_cb_t cb, void *arg)
@@ -183,7 +178,6 @@ void rtt_poweron(void)
     RtcMode0 *rtcMode0 = &(RTT_DEV);
     rtcMode0->CTRL.bit.ENABLE = 1;
     while (rtcMode0->STATUS.bit.SYNCBUSY) {}
-printf("RTT6\n");
 }
 
 void rtt_poweroff(void)

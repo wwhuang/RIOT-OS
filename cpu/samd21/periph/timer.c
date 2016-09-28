@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2014 Freie Universität Berlin
+ * Copyright (C) 2016 University of California, Berkeley
  *
  * This file is subject to the terms and conditions of the GNU Lesser
  * General Public License v2.1. See the file LICENSE in the top level
@@ -14,6 +15,7 @@
  * @brief       Low-level timer driver implementation
  *
  * @author      Thomas Eichinger <thomas.eichinger@fu-berlin.de>
+ * @author      Michael Andersen <m.andersen@cs.berkeley.edu>
  *
  * @}
  */
@@ -44,18 +46,15 @@ static timer_isr_ctx_t config[TIMER_NUMOF];
 int timer_init(tim_t dev, unsigned long freq, timer_cb_t cb, void *arg)
 {
 
+/* If the RTT is enabled, configure GCLK2 as the source */
 #ifdef TIMER_RTT_EN
-	/* hskim: Enable RTC with Clock generator 2 as source */
     GCLK->CLKCTRL.reg = (uint16_t) (GCLK_CLKCTRL_CLKEN | GCLK_CLKCTRL_GEN_GCLK2 | GCLK_CLKCTRL_ID(RTC_GCLK_ID));
-#else
-    /* at the moment, the timer can only run at 1MHz */
-    /*if (freq != 1000000ul) {
-        return -1;
-    }*/
+#endif
 
-/* select the clock generator depending on the main clock source:
+/* If either of the other timers are enabled, configure their clock sources
  * GCLK0 (1MHz) if we use the internal 8MHz oscillator
  * GCLK1 (8MHz) if we use the PLL */
+#if TIMER_0_EN || TIMER_1_EN
 #if CLOCK_USE_PLL
     /* configure GCLK1 (configured to 1MHz) to feed TC3, TC4 and TC5 */;
     GCLK->CLKCTRL.reg = (uint16_t)((GCLK_CLKCTRL_CLKEN | GCLK_CLKCTRL_GEN_GCLK1 | (TC3_GCLK_ID << GCLK_CLKCTRL_ID_Pos)));
@@ -67,8 +66,9 @@ int timer_init(tim_t dev, unsigned long freq, timer_cb_t cb, void *arg)
     GCLK->CLKCTRL.reg = (uint16_t)((GCLK_CLKCTRL_CLKEN | GCLK_CLKCTRL_GEN_GCLK0 | (TC3_GCLK_ID << GCLK_CLKCTRL_ID_Pos)));
     /* TC4 and TC5 share the same channel */
     GCLK->CLKCTRL.reg = (uint16_t)((GCLK_CLKCTRL_CLKEN | GCLK_CLKCTRL_GEN_GCLK0 | (TC4_GCLK_ID << GCLK_CLKCTRL_ID_Pos)));
-#endif	
 #endif
+#endif
+
     while (GCLK->STATUS.bit.SYNCBUSY) {}
 
     switch (dev) {
@@ -119,15 +119,15 @@ int timer_init(tim_t dev, unsigned long freq, timer_cb_t cb, void *arg)
         break;
 #endif
 #if TIMER_RTT_EN
-	case TIMER_RTT:
-		PM->APBAMASK.reg |= PM_APBAMASK_RTC;
-		/* reset timer */
-		RTT_DEV.CTRL.bit.SWRST = 1;
-		while (RTT_DEV.CTRL.bit.SWRST) {}
-		/* hskim: Configure RTC as 32bit counter with no prescaler (32.768kHz) no clear on match compare */
-		RTT_DEV.CTRL.reg = (RTC_MODE0_CTRL_MODE_COUNT32 | RTC_MODE0_CTRL_PRESCALER_DIV1);
-    	while (GCLK->STATUS.bit.SYNCBUSY) {}
-		break;
+    case TIMER_RTT:
+        PM->APBAMASK.reg |= PM_APBAMASK_RTC;
+        /* reset timer */
+        RTT_DEV.CTRL.bit.SWRST = 1;
+        while (RTT_DEV.CTRL.bit.SWRST) {}
+        /* Configure RTC as 32bit counter with no prescaler (32.768kHz) no clear on match compare */
+        RTT_DEV.CTRL.reg = (RTC_MODE0_CTRL_MODE_COUNT32 | RTC_MODE0_CTRL_PRESCALER_DIV1);
+        while (GCLK->STATUS.bit.SYNCBUSY) {}
+        break;
 #endif
     case TIMER_UNDEFINED:
     default:
@@ -196,11 +196,11 @@ int timer_set_absolute(tim_t dev, int channel, unsigned int value)
         break;
 #endif
 #if TIMER_RTT_EN
-	case TIMER_RTT:
-		RTT_DEV.INTFLAG.bit.CMP0 = 1;
-		RTT_DEV.COMP[0].reg = value;
-		RTT_DEV.INTENSET.bit.CMP0 = 1;
-		break;
+    case TIMER_RTT:
+      RTT_DEV.INTFLAG.bit.CMP0 = 1;
+      RTT_DEV.COMP[0].reg = value;
+      RTT_DEV.INTENSET.bit.CMP0 = 1;
+      break;
 #endif
     case TIMER_UNDEFINED:
     default:
@@ -247,10 +247,10 @@ int timer_clear(tim_t dev, int channel)
         break;
 #endif
 #if TIMER_RTT_EN
-	case TIMER_RTT: 
-		RTT_DEV.INTFLAG.bit.CMP0 = 1;
-		RTT_DEV.INTENSET.bit.CMP0 = 1;
-		break;
+    case TIMER_RTT:
+        RTT_DEV.INTFLAG.bit.CMP0 = 1;
+        RTT_DEV.INTENSET.bit.CMP0 = 1;
+        break;
 #endif
     case TIMER_UNDEFINED:
     default:
@@ -278,11 +278,11 @@ unsigned int timer_read(tim_t dev)
         return TIMER_1_DEV.COUNT.reg;
 #endif
 #if TIMER_RTT_EN
-	case TIMER_RTT:
+    case TIMER_RTT:
         /* request syncronisation */
         RTT_DEV.READREQ.reg = RTC_READREQ_RREQ | RTC_READREQ_ADDR(0x10);
-		while (RTT_DEV.STATUS.bit.SYNCBUSY) {}
-    	return RTT_DEV.COUNT.reg;
+        while (RTT_DEV.STATUS.bit.SYNCBUSY) {}
+        return RTT_DEV.COUNT.reg;
 #endif
     default:
         return 0;
@@ -307,7 +307,7 @@ void timer_stop(tim_t dev)
 #if TIMER_RTT_EN
         case TIMER_RTT:
             RTT_DEV.CTRL.bit.ENABLE = 0;
-    		while (RTT_DEV.STATUS.bit.SYNCBUSY) {}
+            while (RTT_DEV.STATUS.bit.SYNCBUSY) {}
             break;
 #endif
         case TIMER_UNDEFINED:
@@ -331,7 +331,7 @@ void timer_start(tim_t dev)
 #if TIMER_RTT_EN
         case TIMER_RTT:
             RTT_DEV.CTRL.bit.ENABLE = 1;
-		    while (RTT_DEV.STATUS.bit.SYNCBUSY) {}
+            while (RTT_DEV.STATUS.bit.SYNCBUSY) {}
             break;
 #endif
         case TIMER_UNDEFINED:
@@ -437,7 +437,7 @@ void TIMER_1_ISR(void)
 
 #if TIMER_RTT_EN
 void TIMER_RTT_ISR(void)
-{    
+{
     if ( RTT_DEV.INTFLAG.bit.CMP0 && RTT_DEV.INTENSET.bit.CMP0 ) {
         if (config[TIMER_RTT].cb) {
             RTT_DEV.INTFLAG.bit.CMP0 = 1;

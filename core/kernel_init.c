@@ -39,16 +39,12 @@
 #include <auto_init.h>
 #endif
 
-/* hskim: prevent sleep first to execute main thread */
-volatile int lpm_prevent_sleep = 1; 
+volatile int lpm_prevent_sleep = 0;
 
 extern int main(void);
 static void *main_trampoline(void *arg)
 {
     (void) arg;
-
-	/* hskim: low power */
-	lpm_prevent_sleep = 0; 
 
 #ifdef MODULE_AUTO_INIT
     auto_init();
@@ -71,13 +67,13 @@ static void *idle_thread(void *arg)
 
     while (1) {
         if (lpm_prevent_sleep) {
-            lpm_set(LPM_IDLE); // Go to Idle mode (hamilton, main clock on)
+            lpm_set(LPM_IDLE);
         }
-        else { 
-			lpm_set(LPM_OFF); // Go to standby mode (hamilton, main clock off)
-			/* lpm_set(LPM_IDLE); */
+        else {
+            /* lpm_set(LPM_IDLE); */
             /* lpm_set(LPM_SLEEP); */
             /* lpm_set(LPM_POWERDOWN); */
+            lpm_set(LPM_OFF);
         }
     }
 

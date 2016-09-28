@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2014 Freie Universität Berlin
+ * Copyright (C) 2015 Saurabh Singh
  *
  * This file is subject to the terms and conditions of the GNU Lesser
  * General Public License v2.1. See the file LICENSE in the top level
@@ -7,10 +8,10 @@
  */
 
 /**
-  * @ingroup     cpu_samd21
+ * @ingroup     cpu_samd21
  * @{
  *
- * @file        lpm_arch.c
+ * @file
  * @brief       Implementation of the kernels power management interface
  *
  * @author      Thomas Eichinger <thomas.eichinger@fu-berlin.de>
@@ -18,11 +19,8 @@
  *
  * @}
  */
-
-#include "arch/lpm_arch.h"
 #include "cpu.h"
-
-uint8_t always_on = 1;
+#include "arch/lpm_arch.h"
 
 enum system_sleepmode {
     /**
@@ -57,15 +55,11 @@ void lpm_arch_init(void)
     current_mode = LPM_ON;
 }
 
-
 enum lpm_mode lpm_arch_set(enum lpm_mode target)
 {
-	enum lpm_mode last_mode = current_mode;
+enum lpm_mode last_mode = current_mode;
 
-	/*if (always_on == 1)
-		target = LPM_IDLE;*/
-    
-	switch (target) {
+    switch (target) {
         case LPM_ON:                    /* Run mode */
             current_mode = LPM_ON;
             break;
@@ -103,7 +97,6 @@ enum lpm_mode lpm_arch_set(enum lpm_mode target)
     return last_mode;
 }
 
-
 static void start_lpm(void)
 {
     /* Executes a device DSB (Data Synchronization Barrier) */
@@ -111,7 +104,6 @@ static void start_lpm(void)
     /* Enter standby mode */
     __WFI();
 }
-
 
 enum lpm_mode lpm_arch_get(void)
 {
@@ -128,15 +120,7 @@ void lpm_arch_awake(void)
 }
 
 /** Not needed */
-void lpm_arch_begin_awake(void){ 
-	if (always_on == 1)
-		always_on = 0;
-	else
-		always_on = 1;
-}
+void lpm_arch_begin_awake(void){ }
 
 /** Not needed */
-void lpm_arch_end_awake(void){ 
-	always_on = 0;
-}
-
+void lpm_arch_end_awake(void){ }

@@ -208,9 +208,6 @@ typedef struct netdev2_driver {
      */
     int (*set)(netdev2_t *dev, netopt_t opt,
                void *value, size_t value_len);
-
-    // hskim: low power
-    void (*trxoff)(netdev2_t *dev);
 } netdev2_driver_t;
 
 #ifdef __cplusplus

@@ -118,14 +118,6 @@ extern "C" {
 #define AT86RF2XX_REG__TST_CTRL_DIGI                            (0x36)
 /** @} */
 
-
-// hskim: low power
-/**
- * @brief   Bitfield definitions for the ANT_DIV register
- * @{
- */
-#define AT86RF2XX_ANT_DIV_MASK__ANT_EXT_SW_EN              (0x04) 
-
 /**
  * @brief   Bitfield definitions for the TRX_CTRL_0 register
  * @{
@@ -206,8 +198,6 @@ extern "C" {
 #define AT86RF2XX_TRX_STATUS__TRX_OFF                           (0x08)
 #define AT86RF2XX_TRX_STATUS__PLL_ON                            (0x09)
 #define AT86RF2XX_TRX_STATUS__SLEEP                             (0x0F)
-// hskim: low power
-#define AT86RF2XX_TRX_STATUS__PREP_DEEP_SLEEP                   (0x10)
 #define AT86RF2XX_TRX_STATUS__BUSY_RX_AACK                      (0x11)
 #define AT86RF2XX_TRX_STATUS__BUSY_TX_ARET                      (0x12)
 #define AT86RF2XX_TRX_STATUS__RX_AACK_ON                        (0x16)
@@ -231,8 +221,6 @@ extern "C" {
 #define AT86RF2XX_TRX_STATE__RX_ON                              (0x06)
 #define AT86RF2XX_TRX_STATE__TRX_OFF                            (0x08)
 #define AT86RF2XX_TRX_STATE__PLL_ON                             (0x09)
-// hskim: low power
-#define AT86RF2XX_TRX_STATE__PREP_DEEP_SLEEP                    (0x10)
 #define AT86RF2XX_TRX_STATE__RX_AACK_ON                         (0x16)
 #define AT86RF2XX_TRX_STATE__TX_ARET_ON                         (0x19)
 #define AT86RF2XX_TRX_STATE__TRAC_SUCCESS                       (0x00)

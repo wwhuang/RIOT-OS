@@ -60,5 +60,4 @@ void cortexm_init(void)
 #ifdef SCB_CCR_STKALIGN_Msk
     SCB->CCR |= SCB_CCR_STKALIGN_Msk;
 #endif
-
 }

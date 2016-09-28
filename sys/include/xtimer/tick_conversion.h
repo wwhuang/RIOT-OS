@@ -41,13 +41,13 @@ inline static uint64_t _xtimer_ticks_from_usec64(uint64_t usec) {
 }
 
 inline static uint32_t _xtimer_usec_from_ticks(uint32_t ticks) {
-     return (ticks >> XTIMER_SHIFT); /* divide by power of two */
+    return (ticks >> XTIMER_SHIFT); /* divide by power of two */
 }
- 
+
 inline static uint64_t _xtimer_usec_from_ticks64(uint64_t ticks) {
-     return (ticks >> XTIMER_SHIFT); /* divide by power of two */
+    return (ticks >> XTIMER_SHIFT); /* divide by power of two */
 }
- 
+
 #else /* !(XTIMER_HZ > 1000000ul) */
 #if ((XTIMER_HZ << XTIMER_SHIFT) != 1000000ul)
 #error (XTIMER_HZ << XTIMER_SHIFT) != 1000000ul
@@ -98,30 +98,30 @@ inline static uint32_t _xtimer_ticks_from_usec(uint32_t usec) {
     return div_u32_by_15625div512(usec);
 }
 
-/*inline static uint64_t _xtimer_ticks_from_usec64(uint64_t usec) {
+inline static uint64_t _xtimer_ticks_from_usec64(uint64_t usec) {
     return div_u64_by_15625div512(usec);
-}*/
+}
 
 inline static uint32_t _xtimer_usec_from_ticks(uint32_t ticks) {
-     /* return (usec * 15625) / 512; */
-     /* Using 64 bit multiplication to avoid truncating the top 9 bits */
-     uint64_t usec = (uint64_t)ticks * 15625ul;
-     return (usec >> 9); /* equivalent to (usec / 512) */
+    /* return (usec * 15625) / 512; */
+    /* Using 64 bit multiplication to avoid truncating the top 9 bits */
+    uint64_t usec = (uint64_t)ticks * 15625ul;
+    return (usec >> 9); /* equivalent to (usec / 512) */
 }
- 
-// inline static uint64_t _xtimer_usec_from_ticks64(uint64_t ticks) {
-     /* return (usec * 15625) / 512; */
-     //uint64_t usec = (uint64_t)ticks * 15625ul;
-     //return (usec >> 9); /* equivalent to (usec / 512) */
- //}
- 
- #else
- /* No matching implementation found, try to give meaningful error messages */
- #if ((XTIMER_HZ % 15625) == 0)
- #error Unsupported hardware timer frequency (XTIMER_HZ), missing XTIMER_SHIFT in board.h? See xtimer.h documentation for more info
- #else
- #error Unknown hardware timer frequency (XTIMER_HZ), check board.h and/or add an implementation in sys/include/xtimer/tick_conversion.h
- #endif
- #endif
- 
- #endif
+
+inline static uint64_t _xtimer_usec_from_ticks64(uint64_t ticks) {
+    /* return (usec * 15625) / 512; */
+    uint64_t usec = (uint64_t)ticks * 15625ul;
+    return (usec >> 9); /* equivalent to (usec / 512) */
+}
+
+#else
+/* No matching implementation found, try to give meaningful error messages */
+#if ((XTIMER_HZ % 15625) == 0)
+#error Unsupported hardware timer frequency (XTIMER_HZ), missing XTIMER_SHIFT in board.h? See xtimer.h documentation for more info
+#else
+#error Unknown hardware timer frequency (XTIMER_HZ), check board.h and/or add an implementation in sys/include/xtimer/tick_conversion.h
+#endif
+#endif
+
+#endif

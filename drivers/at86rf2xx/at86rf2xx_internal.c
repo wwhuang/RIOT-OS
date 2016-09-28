@@ -28,7 +28,6 @@
 #include "at86rf2xx_internal.h"
 #include "at86rf2xx_registers.h"
 
-#include "log.h"
 void at86rf2xx_reg_write(const at86rf2xx_t *dev,
                          const uint8_t addr,
                          const uint8_t value)
@@ -137,6 +136,7 @@ void at86rf2xx_hardware_reset(at86rf2xx_t *dev)
 {
     /* wake up from sleep in case radio is sleeping */
     at86rf2xx_assert_awake(dev);
+
     /* trigger hardware reset */
     gpio_clear(dev->params.reset_pin);
     xtimer_usleep(AT86RF2XX_RESET_PULSE_WIDTH);
@@ -211,11 +211,29 @@ void at86rf2xx_configure_phy(at86rf2xx_t *dev)
     at86rf2xx_set_state(dev, state);
 }
 
+#if defined(MODULE_AT86RF233) || defined(MODULE_AT86RF231)
+void at86rf2xx_get_random(at86rf2xx_t *dev, uint8_t *data, const size_t len)
+{
+    for (size_t byteCount = 0; byteCount < len; ++byteCount) {
+        uint8_t rnd = 0;
+        for (uint8_t i = 0; i < 4; ++i) {
+            /* bit 5 and 6 of the AT86RF2XX_REG__PHY_RSSI register contain the RND_VALUE */
+            uint8_t regVal = at86rf2xx_reg_read(dev, AT86RF2XX_REG__PHY_RSSI)
+                             & AT86RF2XX_PHY_RSSI_MASK__RND_VALUE;
+            /* shift the two random bits first to the right and then to the correct position of the return byte */
+            regVal = regVal >> 5;
+            regVal = regVal << 2 * i;
+            rnd |= regVal;
+        }
+        data[byteCount] = rnd;
+    }
+}
+#endif
+
 void at86rf2xx_force_trx_off(const at86rf2xx_t *dev)
 {
     at86rf2xx_reg_write(dev,
                         AT86RF2XX_REG__TRX_STATE,
                         AT86RF2XX_TRX_STATE__FORCE_TRX_OFF);
     while (at86rf2xx_get_status(dev) != AT86RF2XX_STATE_TRX_OFF);
-
 }

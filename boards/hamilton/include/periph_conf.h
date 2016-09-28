@@ -18,6 +18,7 @@
  * @author      Hauke Petersen <hauke.petersen@fu-berlin.de>
  * @author      Peter Kietzmann <peter.kietzmann@haw-hamburg.de>
  * @author      Michael Andersen <m.andersen@berkeley.edu>
+ * @author      Hyun Sin Kim <hs.kim@berkeley.edu>
  */
 
 #ifndef PERIPH_CONF_H_
@@ -63,26 +64,21 @@ extern "C" {
  *
  * @{
  */
-/*#define CLOCK_USE_PLL       (0)
+
+#define CLOCK_USE_PLL       (0)
+
+#define CLOCK_USE_FLL       (1)
 
 #if CLOCK_USE_PLL
 #define CLOCK_PLL_MUL       (47U)               // must be >= 31 & <= 95
 #define CLOCK_PLL_DIV       (1U)                // adjust to your need
 #define CLOCK_CORECLOCK     (((CLOCK_PLL_MUL + 1) * 1000000U) / CLOCK_PLL_DIV)
-#else
-#define CLOCK_DIV           (1U)
-#define CLOCK_CORECLOCK     (8000000 / CLOCK_DIV)
-#endif */
-/** @} */
-
-/* hskim: for hamilton */
-#define CLOCK_USE_FLL      (1)
-
-#if CLOCK_USE_FLL
+#elif CLOCK_USE_FLL
 #define CLOCK_CORECLOCK     48000000U
 #else
 #define CLOCK_CORECLOCK     32768U
 #endif
+/** @} */
 
 /**
  * @name Timer peripheral configuration
@@ -157,19 +153,18 @@ static const pwm_conf_t pwm_config[] = {
 #define SPI_0_EN           1
 
 /*      SPI0 - radio       */
-#define SPI_0_DEV          SERCOM4->SPI
-#define SPI_IRQ_0          SERCOM4_IRQn
-#define SPI_0_DOPO         (1)
-#define SPI_0_DIPO         (0)
-
-#define SPI_0_SCLK_DEV     PORT->Group[2]
-#define SPI_0_SCLK_PIN     (18)
-
-#define SPI_0_MISO_DEV     PORT->Group[2]
-#define SPI_0_MISO_PIN     (19)
-
-#define SPI_0_MOSI_DEV     PORT->Group[1]
-#define SPI_0_MOSI_PIN     (30)
+#define SPI_0_DEV           SERCOM4->SPI
+#define SPI_IRQ_0           SERCOM4_IRQn
+#define SPI_0_GCLK_ID       SERCOM4_GCLK_ID_CORE
+/* SPI 0 pin configuration */
+#define SPI_0_SCLK          GPIO_PIN(PC, 18)
+#define SPI_0_SCLK_MUX      GPIO_MUX_F
+#define SPI_0_MISO          GPIO_PIN(PC, 19)
+#define SPI_0_MISO_MUX      GPIO_MUX_F
+#define SPI_0_MISO_PAD      SERCOM_RX_PAD_0
+#define SPI_0_MOSI          GPIO_PIN(PB, 30)
+#define SPI_0_MOSI_MUX      GPIO_MUX_F
+#define SPI_0_MOSI_PAD      SPI_PAD_2_SCK_3
 
 /**
  * @name I2C configuration
@@ -185,11 +180,13 @@ static const pwm_conf_t pwm_config[] = {
 #define I2C_0_DEV           SERCOM3->I2CM
 #define I2C_0_IRQ           SERCOM3_IRQn
 #define I2C_0_ISR           isr_sercom3
+/* I2C 0 GCLK */
+#define I2C_0_GCLK_ID       SERCOM3_GCLK_ID_CORE
+#define I2C_0_GCLK_ID_SLOW  SERCOM3_GCLK_ID_SLOW
 /* I2C 0 pin configuration */
-#define I2C_0_PORT          (PORT->Group[0])
-#define I2C_SDA             PIN_PA16
-#define I2C_SCL             PIN_PA17
-#define I2C_0_PINS          (PORT_PA16 | PORT_PA17)
+#define I2C_0_SDA           GPIO_PIN(PA, 16)
+#define I2C_0_SCL           GPIO_PIN(PA, 17)
+#define I2C_0_MUX           GPIO_MUX_D
 
 /**
  * @name Random Number Generator configuration
@@ -214,7 +211,7 @@ static const pwm_conf_t pwm_config[] = {
 #define RTT_DEV             RTC->MODE0
 #define RTT_IRQ             RTC_IRQn
 #define RTT_IRQ_PRIO        10
-#define TIMER_RTT_ISR             isr_rtc
+#define TIMER_RTT_ISR       isr_rtc
 #define RTT_MAX_VALUE       (0xffffffff)
 #define RTT_FREQUENCY       (32768U)    /* in Hz. For changes see `rtt.c` */
 #define RTT_RUNSTDBY        (1)         /* Keep RTT running in sleep states */

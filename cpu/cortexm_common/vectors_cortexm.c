@@ -67,7 +67,6 @@ __attribute__((weak)) void post_startup (void)
 {
 }
 
-
 void reset_handler_default(void)
 {
     uint32_t *dst;
@@ -99,7 +98,6 @@ void reset_handler_default(void)
 
     /* initialize the board (which also initiates CPU initialization) */
     board_init();
-
 
 #if MODULE_NEWLIB
     /* initialize std-c library (this must be done after board_init) */

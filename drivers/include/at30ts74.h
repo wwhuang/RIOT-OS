@@ -91,8 +91,6 @@ int at30ts74_init(at30ts74_t *dev, i2c_t i2c, uint8_t address, uint8_t bits);
  */
 int at30ts74_read(at30ts74_t *dev, int32_t *temperature);
 
-
-
 #ifdef __cplusplus
 }
 #endif

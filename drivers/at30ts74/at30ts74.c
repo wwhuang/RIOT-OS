@@ -60,7 +60,7 @@ int at30ts74_init(at30ts74_t *dev, i2c_t i2c, uint8_t address, uint8_t bits) {
     i2c_init_master(i2c, I2C_SPEED_NORMAL);
 
     // configure and enable the sensor
-    tmp = (bits << CFG_BITS_SHIFT) | CFG_SHDWN; // start from off mode
+    tmp = (bits << CFG_BITS_SHIFT) | CFG_SHDWN;
     res = i2c_write_reg(dev->i2c, address, REG_CFG_ADDR, tmp);
 
     // release the bus for other threads
