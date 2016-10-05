@@ -40,7 +40,7 @@ A RETHOS frame looks like:
 a RETHOS implementation may drop frames whose types it does not recognize, or
 frames on channels that have no registered listener
 
-Note that it is illegal for any character in the preamble to be 0xFE (the escape)
+Note that it is illegal for any character in the preamble to be 0xBE (the escape)
 so that implies that even the preamble needs to be escaped when written
 */
 
@@ -55,8 +55,12 @@ so that implies that even the preamble needs to be escaped when written
 #endif
 #endif
 
-#ifndef RETHOS_TX_BUF
-#define RETHOS_TX_BUF 4096
+#ifndef RETHOS_TX_BUF_SZ
+#define RETHOS_TX_BUF_SZ 4096
+#endif
+
+#ifndef RETHOS_RX_BUF_SZ
+#define RETHOS_RX_BUF_SZ 4096
 #endif
 
 /**
@@ -67,11 +71,18 @@ so that implies that even the preamble needs to be escaped when written
 /* This means that a stream of ESC_CHAR still keeps us inside the escape state */
 #define RETHOS_LITERAL_ESC               (0x55)
 #define RETHOS_FRAME_START               (0xEF)
+#define RETHOS_FRAME_END                 (0xE5)
 
 #define RETHOS_FRAME_TYPE_DATA           (0x1)
 
 #define RETHOS_FRAME_TYPE_HB             (0x2)
 #define RETHOS_FRAME_TYPE_HB_REPLY       (0x3)
+
+#define RETHOS_FRAME_TYPE_SETMAC         (0x4)
+
+#define RETHOS_CHANNEL_CONTROL            0x00
+#define RETHOS_CHANNEL_NETDEV             0x01
+#define RETHOS_CHANNEL_STDIO              0x02
 
 /** @} */
 
@@ -79,16 +90,20 @@ so that implies that even the preamble needs to be escaped when written
  * @brief   enum describing line state
  */
 typedef enum {
-    WAIT_FRAMESTART,
-    WAIT_TYPE,
-    WAIT_SEQ0,
-    WAIT_SEQ1,
-    WAIT_CHANNEL,
-    IN_FRAME,
-    WAIT_CKSUM1,
-    WAIT_CKSUM2,
-    IN_ESCAPE
+    SM_WAIT_FRAMESTART,
+    SM_WAIT_TYPE,
+    SM_WAIT_SEQ0,
+    SM_WAIT_SEQ1,
+    SM_WAIT_CHANNEL,
+    SM_IN_FRAME,
+    SM_WAIT_CKSUM1,
+    SM_WAIT_CKSUM2,
+    SM_IN_ESCAPE
 } line_state_t;
+
+struct _rethos_handler;
+
+typedef struct _rethos_handler rethos_handler_t;
 
 /**
  * @brief ethos netdev2 device
@@ -99,19 +114,45 @@ typedef struct {
     uart_t uart;            /**< UART device the to use */
     uint8_t mac_addr[6];    /**< this device's MAC address */
     uint8_t remote_mac_addr[6]; /**< this device's MAC address */
-    tsrb_t inbuf;           /**< ringbuffer for incoming data */
+
     line_state_t state;     /**< Line status variable */
-    size_t framesize;       /**< size of currently incoming frame */
-    unsigned frametype;     /**< type of currently incoming frame */
-    size_t last_framesize;  /**< size of last completed frame */
+    line_state_t fromstate; /**< what you go back to after escape */
+  //  size_t framesize;       /**< size of currently incoming frame */
+  //  unsigned frametype;     /**< type of currently incoming frame */
+  //  size_t last_framesize;  /**< size of last completed frame */
     mutex_t out_mutex;      /**< mutex used for locking concurrent sends */
 
-    uint8_t txframebuf [RETHOS_TX_BUF];
+    tsrb_t netdev_inbuf;           /**< ringbuffer for incoming netdev data */
+    size_t netdev_packetsz;
+
+    uint8_t rx_buffer [RETHOS_RX_BUF_SZ];
+    size_t rx_buffer_index;
+    uint8_t rx_frame_type;
+    uint16_t rx_seqno;
+    uint8_t rx_channel;
+    uint16_t rx_cksum1;
+    uint16_t rx_cksum2;
+    uint16_t rx_actual_cksum; //The data
+    uint16_t rx_expected_cksum; //The header
+
+    rethos_handler_t *handlers;
+
+    uint32_t stats_rx_cksum_fail;
+    uint32_t stats_rx_bytes;
+    uint32_t stats_rx_frames;
+
+  //  uint8_t txframebuf [RETHOS_TX_BUF];
     uint16_t txseq;
-    uint16_t txlen;
+  //  uint16_t txlen;
     uint16_t flsum1;
     uint16_t flsum2;
 } ethos_t;
+
+struct _rethos_handler {
+  struct _rethos_handler *_next;
+  void (*cb)(ethos_t *dev, uint8_t channel, const uint8_t *data, uint16_t length);
+  uint8_t channel;
+};
 
 /**
  * @brief   Struct containing the needed configuration
@@ -197,9 +238,9 @@ void rethos_continue_frame(ethos_t *dev, const uint8_t *data, size_t thislen);
  */
 void rethos_end_frame(ethos_t *dev);
 
-typedef void (*rethos_cb_t)(ethos_t *dev, uint8_t channel, uint8_t type, const uint8_t *data, uint16_t length);
 
-void rethos_register_handler(ethos_t *dev, uint8_t channel, rethos_cb_t handler);
+
+void rethos_add_handler(ethos_t *dev, rethos_handler_t handler);
 
 #ifdef __cplusplus
 }

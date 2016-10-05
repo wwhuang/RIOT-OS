@@ -17,7 +17,7 @@
  * @author  Kaspar Schleiser <kaspar@schleiser.de>
  */
 
-#ifdef MODULE_ETHOS
+#if defined(MODULE_ETHOS) || defined(MODULE_RETHOS)
 
 #include "ethos.h"
 #include "periph/uart.h"

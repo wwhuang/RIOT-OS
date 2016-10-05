@@ -47,6 +47,7 @@ static const netdev2_driver_t netdev2_driver_ethos;
 
 static const uint8_t _esc_esc[] = {RETHOS_ESC_CHAR, RETHOS_LITERAL_ESC};
 static const uint8_t _start_frame[] = {RETHOS_ESC_CHAR, RETHOS_FRAME_START};
+static const uint8_t _end_frame[] = {RETHOS_ESC_CHAR, RETHOS_FRAME_END};
 
 static void fletcher16_add(const uint8_t *data, size_t bytes, uint16_t *sum1i, uint16_t *sum2i)
 {
@@ -76,12 +77,13 @@ void ethos_setup(ethos_t *dev, const ethos_params_t *params)
 {
     dev->netdev.driver = &netdev2_driver_ethos;
     dev->uart = params->uart;
-    dev->state = WAIT_FRAMESTART;
-    dev->framesize = 0;
-    dev->frametype = 0;
-    dev->last_framesize = 0;
+    dev->state = SM_WAIT_FRAMESTART;
+    dev->netdev_packetsz = 0;
+    dev->rx_buffer_index = 0;
+    dev->handlers = NULL;
+    dev->txseq = 0;
 
-    tsrb_init(&dev->inbuf, (char*)params->buf, params->bufsize);
+    tsrb_init(&dev->netdev_inbuf, (char*)params->buf, params->bufsize);
     mutex_init(&dev->out_mutex);
 
     uint32_t a = random_uint32();
@@ -94,110 +96,153 @@ void ethos_setup(ethos_t *dev, const ethos_params_t *params)
 
     uart_init(params->uart, params->baudrate, ethos_isr, (void*)dev);
 
-    uint8_t frame_delim = ETHOS_FRAME_DELIMITER;
-    uart_write(dev->uart, &frame_delim, 1);
-    ethos_send_frame(dev, dev->mac_addr, 6, ETHOS_FRAME_TYPE_HELLO);
+    //TODO send mac address
+    //
+    // uint8_t frame_delim = ETHOS_FRAME_DELIMITER;
+    // uart_write(dev->uart, &frame_delim, 1);
+    // ethos_send_frame(dev, dev->mac_addr, 6, ETHOS_FRAME_TYPE_HELLO);
 }
 
-static void _reset_state(ethos_t *dev)
+static void sm_invalidate(ethos_t *dev)
 {
-    dev->state = WAIT_FRAMESTART;
-    dev->frametype = 0;
-    dev->framesize = 0;
+  dev->state = SM_WAIT_FRAMESTART;
+  dev->rx_buffer_index = 0;
 }
-
-static void _handle_char(ethos_t *dev, char c)
+static void process_frame(ethos_t *dev)
 {
-    switch (dev->frametype) {
-        case ETHOS_FRAME_TYPE_DATA:
-        case ETHOS_FRAME_TYPE_HELLO:
-        case ETHOS_FRAME_TYPE_HELLO_REPLY:
-             if (tsrb_add_one(&dev->inbuf, c) == 0) {
-                dev->framesize++;
-            } else {
-                //puts("lost frame");
-                dev->inbuf.reads = 0;
-                dev->inbuf.writes = 0;
-                _reset_state(dev);
-            }
-            break;
-#ifdef USE_ETHOS_FOR_STDIO
-        case ETHOS_FRAME_TYPE_TEXT:
-            dev->framesize++;
-            uart_stdio_rx_cb(NULL, c);
-#endif
+    if (dev->rx_frame_type == RETHOS_FRAME_TYPE_SETMAC)
+    {
+      memcpy(&dev->remote_mac_addr, dev->rx_buffer, 6);
+      rethos_send_frame(dev, dev->mac_addr, 6, RETHOS_CHANNEL_CONTROL, RETHOS_FRAME_TYPE_SETMAC);
+    }
+    if (dev->rx_frame_type != RETHOS_FRAME_TYPE_DATA)
+    {
+      return; //Other types are internal to rethos
+    }
+    //Handle the special channels
+    switch(dev->rx_channel) {
+      case RETHOS_CHANNEL_NETDEV:
+        tsrb_add(&dev->netdev_inbuf, (char*) dev->rx_buffer, dev->rx_buffer_index);
+        dev->netdev_packetsz = dev->rx_buffer_index;
+        dev->netdev.event_callback((netdev2_t*) dev, NETDEV2_EVENT_ISR);
+        break;
+      case RETHOS_CHANNEL_STDIO:
+        for (size_t i = 0; i < dev->rx_buffer_index; i++)
+        {
+          uart_stdio_rx_cb(NULL, dev->rx_buffer[i]);
+        }
+        break;
+      default:
+        break;
+    }
+    //And all registered handlers
+    rethos_handler_t *h = dev->handlers;
+    while (h != NULL)
+    {
+      if (h->channel == dev->rx_channel) {
+        h->cb(dev, dev->rx_channel, dev->rx_buffer, dev->rx_buffer_index);
+      }
+      h = h->_next;
     }
 }
 
-static void _end_of_frame(ethos_t *dev)
+static void sm_char(ethos_t *dev, uint8_t c)
 {
-    switch(dev->frametype) {
-        case ETHOS_FRAME_TYPE_DATA:
-            if (dev->framesize) {
-                dev->last_framesize = dev->framesize;
-                dev->netdev.event_callback((netdev2_t*) dev, NETDEV2_EVENT_ISR);
-            }
-            break;
-        case ETHOS_FRAME_TYPE_HELLO:
-            ethos_send_frame(dev, dev->mac_addr, 6, ETHOS_FRAME_TYPE_HELLO_REPLY);
-            /* fall through */
-        case ETHOS_FRAME_TYPE_HELLO_REPLY:
-            if (dev->framesize == 6) {
-                tsrb_get(&dev->inbuf, (char*)dev->remote_mac_addr, 6);
-            }
-            break;
-    }
-
-    _reset_state(dev);
+  switch (dev->state)
+  {
+    case SM_WAIT_TYPE:
+      dev->rx_frame_type = c;
+      dev->state = SM_WAIT_SEQ0;
+      return;
+    case SM_WAIT_SEQ0:
+      dev->rx_seqno = c;
+      dev->state = SM_WAIT_SEQ1;
+      return;
+    case SM_WAIT_SEQ1:
+      dev->rx_seqno |= (((uint16_t)c)<<8);
+      dev->state = SM_WAIT_CHANNEL;
+      return;
+    case SM_WAIT_CHANNEL:
+      dev->rx_channel = c;
+      dev->state = SM_IN_FRAME;
+      return;
+    case SM_IN_FRAME:
+      dev->rx_buffer[dev->rx_buffer_index] = c;
+      if ((dev->rx_buffer_index++) > RETHOS_RX_BUF_SZ) {
+        sm_invalidate(dev);
+      }
+      return;
+    case SM_WAIT_CKSUM1:
+      dev->rx_expected_cksum = c;
+      dev->state = SM_WAIT_CKSUM2;
+      return;
+    case SM_WAIT_CKSUM2:
+      dev->rx_expected_cksum |= (((uint16_t)c)<<8);
+      if (dev->rx_expected_cksum != dev->rx_actual_cksum)
+      {
+        dev->stats_rx_cksum_fail++;
+        //SAM: do nack or something
+      } else {
+        dev->stats_rx_frames++;
+        dev->stats_rx_bytes += dev->rx_buffer_index;
+        process_frame(dev);
+      }
+      sm_invalidate(dev);
+      return;
+    default:
+      return;
+  }
 }
-
+static void sm_frame_start(ethos_t *dev)
+{
+  //Drop everything, we are beginning a new frame reception
+  dev->state = SM_WAIT_TYPE;
+  dev->rx_buffer_index = 0;
+  dev->rx_cksum1 = 0xFF;
+  dev->rx_cksum2 = 0xFF;
+}
+//This is not quite the real end of the frame, we still expect the checksum
+static void sm_frame_end(ethos_t *dev)
+{
+  uint16_t cksum = fletcher16_fin(dev->rx_cksum1, dev->rx_cksum2);
+  dev->rx_actual_cksum = cksum;
+  dev->state = SM_WAIT_CKSUM1;
+}
 static void ethos_isr(void *arg, uint8_t c)
 {
     ethos_t *dev = (ethos_t *) arg;
 
-    switch (dev->state) {
-        case WAIT_FRAMESTART:
-            if (c == ETHOS_FRAME_DELIMITER) {
-                _reset_state(dev);
-                dev->state = IN_FRAME;
-            }
-            break;
-        case IN_FRAME:
-            if (c == ETHOS_ESC_CHAR) {
-                dev->state = IN_ESCAPE;
-            }
-            else if (c == ETHOS_FRAME_DELIMITER) {
-                if (dev->framesize) {
-                    _end_of_frame(dev);
-                }
-            }
-            else {
-                _handle_char(dev, c);
-            }
-            break;
-        case IN_ESCAPE:
-            switch (c) {
-                case (ETHOS_FRAME_DELIMITER ^ 0x20):
-                    _handle_char(dev, ETHOS_FRAME_DELIMITER);
-                    break;
-                case (ETHOS_ESC_CHAR ^ 0x20):
-                    _handle_char(dev, ETHOS_ESC_CHAR);
-                    break;
-                case (ETHOS_FRAME_TYPE_TEXT ^ 0x20):
-                    dev->frametype = ETHOS_FRAME_TYPE_TEXT;
-                    break;
-                case (ETHOS_FRAME_TYPE_HELLO ^ 0x20):
-                    dev->frametype = ETHOS_FRAME_TYPE_HELLO;
-                    break;
-                case (ETHOS_FRAME_TYPE_HELLO_REPLY ^ 0x20):
-                    dev->frametype = ETHOS_FRAME_TYPE_HELLO_REPLY;
-                    break;
-            }
-            dev->state = IN_FRAME;
-            break;
+    if (dev->state == SM_IN_ESCAPE) {
+      switch (c) {
+        case RETHOS_LITERAL_ESC:
+          sm_char(dev, RETHOS_ESC_CHAR);
+          dev->state = dev->fromstate;
+          return;
+        case RETHOS_FRAME_START:
+          sm_frame_start(dev);
+          return;
+        case RETHOS_FRAME_END:
+          sm_frame_end(dev);
+          return;
+        default:
+          //any other character is invalid
+          sm_invalidate(dev);
+          return;
+      }
+    } else {
+      switch(c) {
+        case RETHOS_ESC_CHAR:
+          dev->fromstate = dev->state;
+          dev->state = SM_IN_ESCAPE;
+          return;
+        default:
+          sm_char(dev, c);
+          return;
+      }
     }
 }
 
+//This gets called by netdev2
 static void _isr(netdev2_t *netdev)
 {
     ethos_t *dev = (ethos_t *) netdev;
@@ -256,7 +301,7 @@ void rethos_start_frame(ethos_t *dev, const uint8_t *data, size_t thislen, uint8
   if (!irq_is_in()) {
       mutex_lock(&dev->out_mutex);
   } else {
-    while(1); //Not sure we want to support this
+    //We need to clobber the existing frame, including its reliable delivery
   }
 
   dev->flsum1 = 0xFF;
@@ -273,12 +318,20 @@ void rethos_start_frame(ethos_t *dev, const uint8_t *data, size_t thislen, uint8
   preamble_buffer[5] = channel;
 
   fletcher16_add(&preamble_buffer[2], 4, &dev->flsum1, &dev->flsum2);
-  uart_write(dev->uart, preamble_buffer, 6);
 
-  fletcher16_add(data, thislen, &dev->flsum1, &dev->flsum2);
-  //todo replace with a little bit of chunking
-  for (size_t i = 0; i<thislen; i++) {
-    _write_escaped(dev->uart, data[i]);
+  uart_write(dev->uart, preamble_buffer, 2);
+  for (size_t i = 0; i < 4; i++)
+  {
+    _write_escaped(dev->uart, preamble_buffer[2+i]);
+  }
+
+  if (thislen > 0)
+  {
+    fletcher16_add(data, thislen, &dev->flsum1, &dev->flsum2);
+    //todo replace with a little bit of chunking
+    for (size_t i = 0; i<thislen; i++) {
+      _write_escaped(dev->uart, data[i]);
+    }
   }
 
 }
@@ -295,74 +348,32 @@ void rethos_continue_frame(ethos_t *dev, const uint8_t *data, size_t thislen)
 void rethos_end_frame(ethos_t *dev)
 {
   uint16_t cksum = fletcher16_fin(dev->flsum1, dev->flsum2);
-  //.. <escape><frame end><frame checksum (2 bytes after unescape)>
-  uint8_t postable_buffer[2];
+  uart_write(dev->uart, _end_frame, 2);
+  _write_escaped(dev->uart, cksum & 0xFF);
+  _write_escaped(dev->uart, cksum >> 8);
 
-}
-
-void rethos_send_frame(ethos_t *dev, const uint8_t *data, size_t len, unsigned frame_type)
-{
-    uint8_t frame_delim = ETHOS_FRAME_DELIMITER;
-
-    if (!irq_is_in()) {
-        mutex_lock(&dev->out_mutex);
-    }
-    else {
-        /* Send frame delimiter. This cancels the current frame,
-         * but enables in-ISR writes.  */
-        uart_write(dev->uart, &frame_delim, 1);
-    }
-
-    /* send frame delimiter */
-    uart_write(dev->uart, &frame_delim, 1);
-
-    /* set frame type */
-    if (frame_type) {
-        uint8_t out[2] = { ETHOS_ESC_CHAR, (frame_type ^ 0x20) };
-        uart_write(dev->uart, out, 2);
-    }
-
-    /* send frame content */
-    while(len--) {
-        _write_escaped(dev->uart, *(uint8_t*)data++);
-    }
-
-    /* end of frame */
-    uart_write(dev->uart, &frame_delim, 1);
-
-    if (!irq_is_in()) {
-        mutex_unlock(&dev->out_mutex);
-    }
+  if (!irq_is_in()) {
+      mutex_unlock(&dev->out_mutex);
+  }
 }
 
 static int _send(netdev2_t *netdev, const struct iovec *vector, unsigned count)
 {
     ethos_t * dev = (ethos_t *) netdev;
-    (void)dev;
+
+    rethos_start_frame(dev, NULL, 0, RETHOS_CHANNEL_NETDEV, RETHOS_FRAME_TYPE_DATA);
 
     /* count total packet length */
     size_t pktlen = iovec_count_total(vector, count);
 
-    /* lock line in order to prevent multiple writes */
-    mutex_lock(&dev->out_mutex);
-
-    /* send start-frame-delimiter */
-    uint8_t frame_delim = ETHOS_FRAME_DELIMITER;
-    uart_write(dev->uart, &frame_delim, 1);
-
-    /* send iovec */
     while(count--) {
         size_t n = vector->iov_len;
         uint8_t *ptr = vector->iov_base;
-        while(n--) {
-            _write_escaped(dev->uart, *ptr++);
-        }
+        rethos_continue_frame(dev, ptr, n);
         vector++;
     }
 
-    uart_write(dev->uart, &frame_delim, 1);
-
-    mutex_unlock(&dev->out_mutex);
+    rethos_end_frame(dev);
 
     return pktlen;
 }
@@ -379,15 +390,15 @@ static int _recv(netdev2_t *netdev, void *buf, size_t len, void* info)
     ethos_t * dev = (ethos_t *) netdev;
 
     if (buf) {
-        if (len < (int)dev->last_framesize) {
+        if (len < (int)dev->netdev_packetsz) {
             DEBUG("ethos _recv(): receive buffer too small.\n");
             return -1;
         }
 
-        len = dev->last_framesize;
-        dev->last_framesize = 0;
+        len = dev->netdev_packetsz;
+        dev->netdev_packetsz = 0;
 
-        if ((tsrb_get(&dev->inbuf, buf, len) != len)) {
+        if ((tsrb_get(&dev->netdev_inbuf, buf, len) != len)) {
             DEBUG("ethos _recv(): inbuf doesn't contain enough bytes.\n");
             return -1;
         }
@@ -395,7 +406,7 @@ static int _recv(netdev2_t *netdev, void *buf, size_t len, void* info)
         return (int)len;
     }
     else {
-        return dev->last_framesize;
+        return dev->netdev_packetsz;
     }
 }
 
