@@ -1,0 +1,208 @@
+/*
+ * Copyright (C) 2016 Michael Andersen <m.andersen@cs.berkeley.edu>
+ *
+ * This file is subject to the terms and conditions of the GNU Lesser General
+ * Public License v2.1. See the file LICENSE in the top level directory for more
+ * details.
+ */
+
+/**
+ * @defgroup    drivers_ethos rethos
+ * @ingroup     drivers_netdev
+ * @brief       Driver for the Really EveryTHing over-serial module
+ * @{
+ *
+ * @file
+ * @brief       Interface definition for the rethos module
+ *
+ * @author      Michael Andersen <m.andersen@cs.berkeley.edu>
+ */
+
+#ifndef RETHOS_H
+#define RETHOS_H
+
+#include "kernel_types.h"
+#include "periph/uart.h"
+#include "net/netdev2.h"
+#include "tsrb.h"
+#include "mutex.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+/* rethos is a drop in replacement for ethos, so shares some of its
+  symbols. The difference between an ETHOS and RETHOS frame is as follows:
+
+A RETHOS frame looks like:
+<escape><frame start><frame type (1 byte)><frame seq 2 bytes><frame channel (1 byte)> .. frame .. <escape><frame end><frame checksum (2 bytes after unescape)>
+
+a RETHOS implementation may drop frames whose types it does not recognize, or
+frames on channels that have no registered listener
+
+Note that it is illegal for any character in the preamble to be 0xFE (the escape)
+so that implies that even the preamble needs to be escaped when written
+*/
+
+/* if using ethos + stdio, use UART_STDIO values unless overridden */
+#ifdef USE_ETHOS_FOR_STDIO
+#include "uart_stdio.h"
+#ifndef ETHOS_UART
+#define ETHOS_UART     UART_STDIO_DEV
+#endif
+#ifndef ETHOS_BAUDRATE
+#define ETHOS_BAUDRATE UART_STDIO_BAUDRATE
+#endif
+#endif
+
+#ifndef RETHOS_TX_BUF
+#define RETHOS_TX_BUF 4096
+#endif
+
+/**
+ * @name Escape char definitions
+ * @{
+ */
+#define RETHOS_ESC_CHAR                  (0xBE)
+/* This means that a stream of ESC_CHAR still keeps us inside the escape state */
+#define RETHOS_LITERAL_ESC               (0x55)
+#define RETHOS_FRAME_START               (0xEF)
+
+#define RETHOS_FRAME_TYPE_DATA           (0x1)
+
+#define RETHOS_FRAME_TYPE_HB             (0x2)
+#define RETHOS_FRAME_TYPE_HB_REPLY       (0x3)
+
+/** @} */
+
+/**
+ * @brief   enum describing line state
+ */
+typedef enum {
+    WAIT_FRAMESTART,
+    WAIT_TYPE,
+    WAIT_SEQ0,
+    WAIT_SEQ1,
+    WAIT_CHANNEL,
+    IN_FRAME,
+    WAIT_CKSUM1,
+    WAIT_CKSUM2,
+    IN_ESCAPE
+} line_state_t;
+
+/**
+ * @brief ethos netdev2 device
+ * @extends netdev2_t
+ */
+typedef struct {
+    netdev2_t netdev;       /**< extended netdev2 structure */
+    uart_t uart;            /**< UART device the to use */
+    uint8_t mac_addr[6];    /**< this device's MAC address */
+    uint8_t remote_mac_addr[6]; /**< this device's MAC address */
+    tsrb_t inbuf;           /**< ringbuffer for incoming data */
+    line_state_t state;     /**< Line status variable */
+    size_t framesize;       /**< size of currently incoming frame */
+    unsigned frametype;     /**< type of currently incoming frame */
+    size_t last_framesize;  /**< size of last completed frame */
+    mutex_t out_mutex;      /**< mutex used for locking concurrent sends */
+
+    uint8_t txframebuf [RETHOS_TX_BUF];
+    uint16_t txseq;
+    uint16_t txlen;
+    uint16_t flsum1;
+    uint16_t flsum2;
+} ethos_t;
+
+/**
+ * @brief   Struct containing the needed configuration
+ */
+typedef struct {
+    uart_t uart;            /**< UART device to use */
+    uint32_t baudrate;      /**< baudrate to UART device */
+    uint8_t *buf;           /**< buffer for incoming packets */
+    size_t bufsize;         /**< size of ethos_params_t::buf */
+} ethos_params_t;
+
+/**
+ * @brief Setup an ethos based device state.
+ *
+ * The supplied buffer *must* have a power-of-two size, and it *must* be large
+ * enough for the largest expected packet + enough buffer space to buffer
+ * bytes that arrive while one packet is being handled.
+ * note that rethos needs a bigger buffer than ethos because it buffers up to TWO frames
+ *
+ * E.g., if 1536b ethernet frames are expected, 4096 is probably a good size for @p buf.
+ *
+ * @param[out]  dev         handle of the device to initialize
+ * @param[in]   params      parameters for device initialization
+ */
+void ethos_setup(ethos_t *dev, const ethos_params_t *params);
+
+/**
+ * @brief send frame over serial port using ethos' framing
+ *
+ * This is used by e.g., stdio over ethos to send text frames.
+ *
+ * @param[in]   dev         handle of the device to initialize
+ * @param[in]   data        ptr to data to be sent
+ * @param[in]   len         nr of bytes to send
+ * @param[in]   frame_type  frame channel to use
+ */
+void ethos_send_frame(ethos_t *dev, const uint8_t *data, size_t len, unsigned channel);
+
+/**
+ * @brief send frame over serial port using ethos' framing
+ *
+ * This is used by e.g., stdio over ethos to send text frames.
+ *
+ * @param[in]   dev         handle of the device to initialize
+ * @param[in]   data        ptr to data to be sent
+ * @param[in]   len         nr of bytes to send
+ * @param[in]   frame_type  frame channel to use
+ */
+void rethos_send_frame(ethos_t *dev, const uint8_t *data, size_t len, uint8_t channel, uint8_t frame_type);
+
+/**
+ * @brief send frame over serial port using ethos' framing
+ *
+ * This is used by e.g., stdio over ethos to send text frames.
+ *
+ * @param[in]   dev         handle of the device to initialize
+ * @param[in]   data        ptr to data to be sent
+ * @param[in]   thislen     nr of bytes to send on this invocation
+ * @param[in]   frame_type  frame type to use
+ */
+void rethos_start_frame(ethos_t *dev, const uint8_t *data, size_t thislen, uint8_t channel, uint8_t frame_type);
+
+/**
+ * @brief send frame over serial port using ethos' framing
+ *
+ * This is used by e.g., stdio over ethos to send text frames.
+ *
+ * @param[in]   dev         handle of the device to initialize
+ * @param[in]   data        ptr to data to be sent
+ * @param[in]   thislen     nr of bytes to send on this invocation
+ */
+void rethos_continue_frame(ethos_t *dev, const uint8_t *data, size_t thislen);
+
+/**
+ * @brief send frame over serial port using ethos' framing
+ *
+ * This is used by e.g., stdio over ethos to send text frames.
+ *
+ * @param[in]   dev         handle of the device to initialize
+ * @param[in]   data        ptr to data to be sent
+ * @param[in]   thislen     nr of bytes to send on this invocation
+ * @param[in]   frame_type  frame type to use
+ */
+void rethos_end_frame(ethos_t *dev);
+
+typedef void (*rethos_cb_t)(ethos_t *dev, uint8_t channel, uint8_t type, const uint8_t *data, uint16_t length);
+
+void rethos_register_handler(ethos_t *dev, uint8_t channel, rethos_cb_t handler);
+
+#ifdef __cplusplus
+}
+#endif
+#endif /* RETHOS_H */
+/** @} */

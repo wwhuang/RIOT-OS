@@ -35,6 +35,9 @@
 #include "at86rf2xx_internal.h"
 #include "at86rf2xx_registers.h"
 
+#define TX_TOGGLE (PORT->Group[0].OUTTGL.reg = (1<<27))
+#define RX_TOGGLE (PORT->Group[1].OUTTGL.reg = (1<<23))
+
 #define ENABLE_DEBUG (0)
 #include "debug.h"
 
@@ -115,6 +118,7 @@ static int _send(netdev2_t *netdev, const struct iovec *vector, unsigned count)
         }
 #ifdef MODULE_NETSTATS_L2
         netdev->stats.tx_bytes += len;
+
 #endif
         len = at86rf2xx_tx_load(dev, ptr->iov_base, ptr->iov_len, len);
     }
@@ -123,6 +127,7 @@ static int _send(netdev2_t *netdev, const struct iovec *vector, unsigned count)
     if (!(dev->netdev.flags & AT86RF2XX_OPT_PRELOADING)) {
         at86rf2xx_tx_exec(dev);
     }
+    TX_TOGGLE;
     /* return the number of bytes that were actually send out */
     return (int)len;
 }
@@ -151,7 +156,9 @@ static int _recv(netdev2_t *netdev, void *buf, size_t len, void *info)
 #ifdef MODULE_NETSTATS_L2
     netdev->stats.rx_count++;
     netdev->stats.rx_bytes += pkt_len;
+
 #endif
+RX_TOGGLE;
     /* not enough space in buf */
     if (pkt_len > len) {
         at86rf2xx_fb_stop(dev);
@@ -614,6 +621,7 @@ static void _isr(netdev2_t *netdev)
         if (state == AT86RF2XX_STATE_RX_AACK_ON ||
             state == AT86RF2XX_STATE_BUSY_RX_AACK) {
             DEBUG("[at86rf2xx] EVT - RX_END\n");
+          //  RX_TOGGLE;
             if (!(dev->netdev.flags & AT86RF2XX_OPT_TELL_RX_END)) {
                 return;
             }
@@ -630,7 +638,7 @@ static void _isr(netdev2_t *netdev)
             }
 
             DEBUG("[at86rf2xx] EVT - TX_END\n");
-
+          //  TX_TOGGLE;
             if (netdev->event_callback && (dev->netdev.flags & AT86RF2XX_OPT_TELL_TX_END)) {
                 switch (trac_status) {
                     case AT86RF2XX_TRX_STATE__TRAC_SUCCESS:
