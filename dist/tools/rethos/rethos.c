@@ -704,7 +704,7 @@ int main(int argc, char *argv[])
 
                         printf("Got a frame on channel %d\n", serial.channel);
 
-                        checked_write(out_fd, inbuf, sizeof(inbuf));
+                        checked_write(out_fd, serial.frame, serial.numbytes);
                     }
                 }
             }
