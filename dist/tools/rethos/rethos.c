@@ -576,10 +576,9 @@ int _open_connection(char *name, char* option)
 
 void check_fatal_error(const char* msg)
 {
-    if (errno) {
-        perror(msg);
-        exit(1);
-    }
+    assert(errno);
+    perror(msg);
+    exit(1);
 }
 
 typedef struct {
@@ -597,16 +596,23 @@ void channel_listen(channel_t* chan, int channel_number) {
     snprintf(&bound_name.sun_path[1], sizeof(bound_name.sun_path) - 1, "rethos/%d", channel_number);
     total_size = sizeof(bound_name.sun_family) + 1 + strlen(&bound_name.sun_path[1]);
     dsock = socket(AF_UNIX, SOCK_SEQPACKET, 0);
-    check_fatal_error("Could not create domain socket");
+    if (dsock == -1) {
+        check_fatal_error("Could not create domain socket");
+    }
     flags = fcntl(dsock, F_GETFL);
-    check_fatal_error("Could not get socket flags");
-    assert(flags != -1);
-    fcntl(dsock, F_SETFL, flags | O_NONBLOCK);
-    check_fatal_error("Could not set socket flags");
-    bind(dsock, (struct sockaddr*) &bound_name, total_size);
-    check_fatal_error("Could not bind domain socket");
-    listen(dsock, 0);
-    check_fatal_error("Could not listen on domain socket");
+    if (flags == -1) {
+        check_fatal_error("Could not get socket flags");
+    }
+    flags = fcntl(dsock, F_SETFL, flags | O_NONBLOCK);
+    if (flags == -1) {
+        check_fatal_error("Could not set socket flags");
+    }
+    if (bind(dsock, (struct sockaddr*) &bound_name, total_size) == -1) {
+        check_fatal_error("Could not bind domain socket");
+    }
+    if (listen(dsock, 0) == -1) {
+        check_fatal_error("Could not listen on domain socket");
+    }
 
     chan->server_socket = dsock;
     chan->client_socket = -1;
@@ -740,8 +746,9 @@ int main(int argc, char *argv[])
                     struct sockaddr_un client_addr;
                     socklen_t client_addr_len;
                     int client_socket = accept(dsock, (struct sockaddr*) &client_addr, &client_addr_len);
-                    check_fatal_error("accept connection on domain socket");
-                    assert(client_socket != -1);
+                    if (client_socket == -1) {
+                        check_fatal_error("accept connection on domain socket");
+                    }
                     printf("Accepted client process on channel %d\n", i);
                     domain_sockets[i].client_socket = client_socket;
 
