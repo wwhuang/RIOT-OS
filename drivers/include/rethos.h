@@ -240,7 +240,7 @@ void rethos_end_frame(ethos_t *dev);
 
 
 
-void rethos_add_handler(ethos_t *dev, rethos_handler_t handler);
+void rethos_register_handler(ethos_t *dev, rethos_handler_t *handler);
 
 #ifdef __cplusplus
 }

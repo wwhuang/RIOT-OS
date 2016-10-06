@@ -432,6 +432,20 @@ static int _get(netdev2_t *dev, netopt_t opt, void *value, size_t max_len)
     return res;
 }
 
+void rethos_register_handler(ethos_t *dev, rethos_handler_t *handler)
+{
+  rethos_handler_t *h = dev->handlers;
+  handler->_next = NULL;
+  if (h == NULL) {
+    dev->handlers = handler;
+  } else {
+    while (h->_next != NULL) {
+      h = h->_next;
+    }
+    h->_next = handler;
+  }
+}
+
 /* netdev2 interface */
 static const netdev2_driver_t netdev2_driver_ethos = {
     .send = _send,
