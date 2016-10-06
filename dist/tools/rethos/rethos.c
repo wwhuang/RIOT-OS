@@ -591,9 +591,11 @@ void channel_listen(channel_t* chan, int channel_number) {
     int dsock;
     int flags;
     struct sockaddr_un bound_name;
+    size_t total_size;
     memset(&bound_name, 0, sizeof(bound_name));
     bound_name.sun_family = AF_UNIX;
-    sprintf(&bound_name.sun_path[1], "rethos/%d", channel_number);
+    snprintf(&bound_name.sun_path[1], sizeof(bound_name.sun_path) - 1, "rethos/%d", channel_number);
+    total_size = sizeof(bound_name.sun_family) + 1 + strlen(&bound_name.sun_path[1]);
     dsock = socket(AF_UNIX, SOCK_SEQPACKET, 0);
     check_fatal_error("Could not create domain socket");
     flags = fcntl(dsock, F_GETFL);
@@ -601,7 +603,7 @@ void channel_listen(channel_t* chan, int channel_number) {
     assert(flags != -1);
     fcntl(dsock, F_SETFL, flags | O_NONBLOCK);
     check_fatal_error("Could not set socket flags");
-    bind(dsock, (struct sockaddr*) &bound_name, sizeof(struct sockaddr_un));
+    bind(dsock, (struct sockaddr*) &bound_name, total_size);
     check_fatal_error("Could not bind domain socket");
     listen(dsock, 0);
     check_fatal_error("Could not listen on domain socket");
@@ -733,13 +735,14 @@ int main(int argc, char *argv[])
         for (i = 0; i < NUM_CHANNELS; i++) {
             int dsock;
             if (domain_sockets[i].client_socket == -1) {
-                dsock = domain_sockets[i].client_socket;
+                dsock = domain_sockets[i].server_socket;
                 if (FD_ISSET(dsock, &readfds)) {
                     struct sockaddr_un client_addr;
                     socklen_t client_addr_len;
                     int client_socket = accept(dsock, (struct sockaddr*) &client_addr, &client_addr_len);
                     check_fatal_error("accept connection on domain socket");
                     assert(client_socket != -1);
+                    printf("Accepted client process on channel %d\n", i);
                     domain_sockets[i].client_socket = client_socket;
 
                     /* Stop listening on this channel. It only makes sense to have one entity listening and writing. */
@@ -752,14 +755,11 @@ int main(int argc, char *argv[])
                     ssize_t res = read(dsock, inbuf, sizeof(inbuf));
                     char msgbuf[100];
                     if (res <= 0) {
-                        if (errno == ENOTCONN || errno == ECONNRESET) {
-                            close(dsock);
-                            domain_sockets[i].client_socket = -1;
-                            channel_listen(&domain_sockets[i], i);
-                        } else {
-                            snprintf(msgbuf, 100, "error reading from domain socket %d", i);
-                            perror(msgbuf);
-                        }
+                        assert(errno != EWOULDBLOCK);
+                        close(dsock);
+                        domain_sockets[i].client_socket = -1;
+                        channel_listen(&domain_sockets[i], i);
+                        printf("Client process on channel %d disconnected\n", i);
                         continue;
                     }
                     rethos_send_frame(&serial, inbuf, res, i, RETHOS_FRAME_TYPE_DATA);
