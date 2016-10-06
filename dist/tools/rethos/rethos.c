@@ -46,7 +46,7 @@
 
 #define STDIN_CHANNEL 0
 #define TUNTAP_CHANNEL 1
-#define NUM_CHANNELS 16
+#define NUM_CHANNELS 256
 
 #define TCP_DEV "tcp:"
 #define IOTLAB_TCP_PORT "20000"
@@ -582,6 +582,34 @@ void check_fatal_error(const char* msg)
     }
 }
 
+typedef struct {
+    int server_socket;
+    int client_socket;
+} channel_t;
+
+void channel_listen(channel_t* chan, int channel_number) {
+    int dsock;
+    int flags;
+    struct sockaddr_un bound_name;
+    memset(&bound_name, 0, sizeof(bound_name));
+    bound_name.sun_family = AF_UNIX;
+    sprintf(&bound_name.sun_path[1], "rethos/%d", channel_number);
+    dsock = socket(AF_UNIX, SOCK_SEQPACKET, 0);
+    check_fatal_error("Could not create domain socket");
+    flags = fcntl(dsock, F_GETFL);
+    check_fatal_error("Could not get socket flags");
+    assert(flags != -1);
+    fcntl(dsock, F_SETFL, flags | O_NONBLOCK);
+    check_fatal_error("Could not set socket flags");
+    bind(dsock, (struct sockaddr*) &bound_name, sizeof(struct sockaddr_un));
+    check_fatal_error("Could not bind domain socket");
+    listen(dsock, 0);
+    check_fatal_error("Could not listen on domain socket");
+
+    chan->server_socket = dsock;
+    chan->client_socket = -1;
+}
+
 int main(int argc, char *argv[])
 {
     char inbuf[MTU];
@@ -616,35 +644,34 @@ int main(int argc, char *argv[])
     serial.fd = serial_fd;
 
     fd_set readfds;
-    int max_fd = (serial_fd > tap_fd) ? serial_fd : tap_fd;
 
-    int domain_sockets[NUM_CHANNELS];
+    channel_t domain_sockets[NUM_CHANNELS];
     int i;
     for (i = 0; i < NUM_CHANNELS; i++) {
-        int dsock;
-        struct sockaddr_un bound_name;
-        bound_name.sun_family = AF_UNIX;
-        assert(sizeof(bound_name.sun_path) == 108);
-        snprintf(bound_name.sun_path, sizeof(bound_name.sun_path), "/dev/%s:%d", argv[2], i);
-        dsock = socket(AF_UNIX, SOCK_SEQPACKET, 0);
-        check_fatal_error("Could not create domain socket");
-        bind(dsock, (struct sockaddr*) &bound_name, sizeof(struct sockaddr_un));
-        check_fatal_error("Could not bind domain socket");
-
-        max_fd = (dsock > max_fd) ? dsock : max_fd;
-        domain_sockets[i] = dsock;
+        channel_listen(&domain_sockets[i], i);
     }
 
     while (true) {
         int activity;
+        int max_fd = 0;
+        #define UPDATE_MAX_FD(fd) max_fd = ((fd) > max_fd ? (fd) : max_fd);
         FD_ZERO(&readfds);
         FD_SET(STDIN_FILENO, &readfds);
+        UPDATE_MAX_FD(STDIN_FILENO);
         FD_SET(tap_fd, &readfds);
+        UPDATE_MAX_FD(tap_fd);
         FD_SET(serial_fd, &readfds);
+        UPDATE_MAX_FD(serial_fd);
         for (i = 0; i < NUM_CHANNELS; i++) {
-            FD_SET(domain_sockets[i], &readfds);
+            if (domain_sockets[i].client_socket == -1) {
+                FD_SET(domain_sockets[i].server_socket, &readfds);
+                UPDATE_MAX_FD(domain_sockets[i].server_socket);
+            } else {
+                FD_SET(domain_sockets[i].client_socket, &readfds);
+                UPDATE_MAX_FD(domain_sockets[i].client_socket);
+            }
         }
-        activity = select( max_fd + 1 , &readfds , NULL , NULL , NULL);
+        activity = select(max_fd + 1, &readfds, NULL, NULL, NULL);
 
         if ((activity < 0) && (errno != EINTR))
         {
@@ -658,8 +685,6 @@ int main(int argc, char *argv[])
                 for (i = 0; i != n; i++) {
                     bool ready = _serial_handle_byte(&serial, *ptr++);
                     if (ready) {
-                        printf("Got a frame!");
-
                         /* TODO check the checksum, and use the sequence number, and
                          * message type for reliable delivery. */
 
@@ -668,9 +693,14 @@ int main(int argc, char *argv[])
                             out_fd = STDOUT_FILENO;
                         } else if (serial.channel == TUNTAP_CHANNEL) {
                             out_fd = tap_fd;
-                        } else if (serial.channel < NUM_CHANNELS) {
-                            out_fd = domain_sockets[serial.channel];
+                        } else if (serial.channel < NUM_CHANNELS && domain_sockets[serial.channel].client_socket != -1) {
+                            out_fd = domain_sockets[serial.channel].client_socket;
+                        } else {
+                            fprintf(stderr, "Got message on channel %d, which is not connected: dropping message\n", serial.channel);
+                            continue;
                         }
+
+                        printf("Got a frame on channel %d\n", serial.channel);
 
                         checked_write(out_fd, inbuf, sizeof(inbuf));
                     }
@@ -701,14 +731,39 @@ int main(int argc, char *argv[])
         }
 
         for (i = 0; i < NUM_CHANNELS; i++) {
-            int dsock = domain_sockets[i];
-            if (FD_ISSET(dsock, &readfds)) {
-                ssize_t res = read(dsock, inbuf, sizeof(inbuf));
-                if (res <= 0) {
-                    fprintf(stderr, "error reading from domain socket %d. res=%zi\n", i, res);
-                    continue;
+            int dsock;
+            if (domain_sockets[i].client_socket == -1) {
+                dsock = domain_sockets[i].client_socket;
+                if (FD_ISSET(dsock, &readfds)) {
+                    struct sockaddr_un client_addr;
+                    socklen_t client_addr_len;
+                    int client_socket = accept(dsock, (struct sockaddr*) &client_addr, &client_addr_len);
+                    check_fatal_error("accept connection on domain socket");
+                    assert(client_socket != -1);
+                    domain_sockets[i].client_socket = client_socket;
+
+                    /* Stop listening on this channel. It only makes sense to have one entity listening and writing. */
+                    close(domain_sockets[i].server_socket);
+                    domain_sockets[i].server_socket = -1;
                 }
-                rethos_send_frame(&serial, inbuf, res, i, RETHOS_FRAME_TYPE_DATA);
+            } else {
+                dsock = domain_sockets[i].client_socket;
+                if (FD_ISSET(dsock, &readfds)) {
+                    ssize_t res = read(dsock, inbuf, sizeof(inbuf));
+                    char msgbuf[100];
+                    if (res <= 0) {
+                        if (errno == ENOTCONN || errno == ECONNRESET) {
+                            close(dsock);
+                            domain_sockets[i].client_socket = -1;
+                            channel_listen(&domain_sockets[i], i);
+                        } else {
+                            snprintf(msgbuf, 100, "error reading from domain socket %d", i);
+                            perror(msgbuf);
+                        }
+                        continue;
+                    }
+                    rethos_send_frame(&serial, inbuf, res, i, RETHOS_FRAME_TYPE_DATA);
+                }
             }
         }
     }
