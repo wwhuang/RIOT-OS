@@ -44,8 +44,8 @@
 
 #define BAUDRATE_DEFAULT B115200
 
-#define STDIN_CHANNEL 0
-#define TUNTAP_CHANNEL 1
+#define STDIN_CHANNEL 1
+#define TUNTAP_CHANNEL 2
 #define NUM_CHANNELS 256
 
 #define TCP_DEV "tcp:"
