@@ -202,6 +202,10 @@ typedef enum {
 typedef struct {
     int fd;
 
+    /* State for storing partial checksum. */
+    uint16_t sum1;
+    uint16_t sum2;
+
     /* State for reading data. */
     line_state_t state;
     uint8_t frametype;
@@ -241,13 +245,6 @@ static uint16_t fletcher16_fin(uint16_t sum1, uint16_t sum2)
   return (sum2 << 8) | sum1;
 }
 
-static uint16_t fletcher16_compute(const uint8_t* data, size_t bytes) {
-    uint16_t sum1 = 0xFF;
-    uint16_t sum2 = 0xFF;
-    fletcher16_add(data, bytes, &sum1, &sum2);
-    return fletcher16_fin(sum1, sum2);
-}
-
 typedef enum {
     NO_EVENT,
     FRAME_READY,
@@ -273,6 +270,8 @@ static serial_event_t _serial_handle_byte(serial_t *serial, char c)
                 fprintf(stderr, "Got unexpected start-of-frame sequence: dropping current frame\n");
                 goto handle_corrupt_frame;
             }
+            serial->sum1 = 0xFF;
+            serial->sum2 = 0xFF;
             serial->state = WAIT_FRAMETYPE;
             goto done_char;
         } else if (c == RETHOS_FRAME_END) {
@@ -321,12 +320,12 @@ static serial_event_t _serial_handle_byte(serial_t *serial, char c)
         case WAIT_CHECKSUM_1:
             serial->checksum = (uint8_t) c;
             serial->state = WAIT_CHECKSUM_2;
-            break;
+            goto done_char;
         case WAIT_CHECKSUM_2:
             serial->checksum |= (((uint16_t) c) << 8);
 
             /* Check the checksum. */
-            if (serial->checksum != fletcher16_compute(serial->frame, serial->numbytes)) {
+            if (serial->checksum != fletcher16_fin(serial->sum1, serial->sum2)) {
                 goto handle_corrupt_frame;
             }
 
@@ -335,6 +334,9 @@ static serial_event_t _serial_handle_byte(serial_t *serial, char c)
 
             goto drop_frame_state;
     }
+
+    /* Update checksum. */
+    fletcher16_add((uint8_t*) &c, 1, &serial->sum1, &serial->sum2);
 
     goto done_char;
 
