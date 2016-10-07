@@ -10,7 +10,10 @@
 
 #include <assert.h>
 #include <errno.h>
+#include <inttypes.h>
+#include <signal.h>
 #include <stdbool.h>
+#include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
@@ -26,7 +29,6 @@
 #include <sys/select.h>
 #include <sys/time.h>
 #include <sys/un.h>
-#include <stdlib.h>
 
 #include <netdb.h>
 
@@ -44,12 +46,50 @@
 
 #define BAUDRATE_DEFAULT B115200
 
-#define STDIN_CHANNEL 0
-#define TUNTAP_CHANNEL 1
+#define RESERVED_CHANNEL 0
+#define STDIN_CHANNEL 1
+#define TUNTAP_CHANNEL 2
 #define NUM_CHANNELS 256
+
+#define STATS_INTERVAL 15
 
 #define TCP_DEV "tcp:"
 #define IOTLAB_TCP_PORT "20000"
+
+typedef struct {
+    uint64_t serial_received;
+    uint64_t domain_forwarded;
+
+    uint64_t domain_received;
+    uint64_t serial_forwarded;
+
+    uint64_t lost_frames;
+    uint64_t bad_frames;
+
+    uint64_t drop_notconnected;
+} __attribute__((packed)) global_stats_t;
+
+typedef struct {
+    uint64_t serial_received;
+    uint64_t domain_forwarded;
+    uint64_t drop_notconnected;
+
+    uint64_t domain_received;
+    uint64_t serial_forwarded;
+} __attribute__((packed)) channel_stats_t;
+
+struct {
+    global_stats_t global;
+    channel_stats_t channel[NUM_CHANNELS];
+} __attribute__((packed)) stats = {0};
+
+volatile sig_atomic_t alarm_fired = 0;
+
+/* This function executes in a signal handler. */
+static void alarm_handler(int signum) {
+    (void) signum;
+    alarm_fired = 1;
+}
 
 static void usage(void)
 {
@@ -175,13 +215,50 @@ typedef struct {
     uint16_t out_seqno;
 } serial_t;
 
-static bool _serial_handle_byte(serial_t *serial, char c)
+static void fletcher16_add(const uint8_t *data, size_t bytes, uint16_t *sum1i, uint16_t *sum2i)
 {
-    bool ready = false;
+    uint16_t sum1 = *sum1i, sum2 = *sum2i;
+
+    while (bytes) {
+        size_t tlen = bytes > 20 ? 20 : bytes;
+        bytes -= tlen;
+        do {
+            sum2 += sum1 += *data++;
+        } while (--tlen);
+        sum1 = (sum1 & 0xff) + (sum1 >> 8);
+        sum2 = (sum2 & 0xff) + (sum2 >> 8);
+    }
+    *sum1i = sum1;
+    *sum2i = sum2;
+}
+
+static uint16_t fletcher16_fin(uint16_t sum1, uint16_t sum2)
+{
+  sum1 = (sum1 & 0xff) + (sum1 >> 8);
+  sum2 = (sum2 & 0xff) + (sum2 >> 8);
+  return (sum2 << 8) | sum1;
+}
+
+static uint16_t fletcher16_compute(const uint8_t* data, size_t bytes) {
+    uint16_t sum1 = 0xFF;
+    uint16_t sum2 = 0xFF;
+    fletcher16_add(data, bytes, &sum1, &sum2);
+    return fletcher16_fin(sum1, sum2);
+}
+
+typedef enum {
+    NO_EVENT,
+    FRAME_READY,
+    FRAME_DROPPED
+} serial_event_t;
+
+static serial_event_t _serial_handle_byte(serial_t *serial, char c)
+{
+    serial_event_t event = NO_EVENT;
 
     if (c == RETHOS_ESC_CHAR) {
         serial->in_escape = true;
-        return ready;
+        return event;
     }
 
     if (serial->in_escape) {
@@ -192,6 +269,7 @@ static bool _serial_handle_byte(serial_t *serial, char c)
             /* If we receive the start sequence, then drop the current frame and start receiving. */
             if (serial->state != WAIT_FRAMESTART) {
                 fprintf(stderr, "Got unexpected start-of-frame sequence: dropping current frame\n");
+                goto handle_corrupt_frame;
             }
             serial->state = WAIT_FRAMETYPE;
             goto done_char;
@@ -245,8 +323,13 @@ static bool _serial_handle_byte(serial_t *serial, char c)
         case WAIT_CHECKSUM_2:
             serial->checksum |= (((uint16_t) c) << 8);
 
+            /* Check the checksum. */
+            if (serial->checksum != fletcher16_compute(serial->frame, serial->numbytes)) {
+                goto handle_corrupt_frame;
+            }
+
             /* Set "ready" so the frame is delivered to the handler. */
-            ready = true;
+            event = FRAME_READY;
 
             goto drop_frame_state;
     }
@@ -254,6 +337,7 @@ static bool _serial_handle_byte(serial_t *serial, char c)
     goto done_char;
 
 handle_corrupt_frame:
+    event = FRAME_DROPPED;
     /* TODO: Send a NACK here. */
 
 drop_frame_state:
@@ -263,31 +347,7 @@ drop_frame_state:
 done_char:
     /* Finished handling this character. */
     serial->in_escape = false;
-    return ready;
-}
-
-static void fletcher16_add(const uint8_t *data, size_t bytes, uint16_t *sum1i, uint16_t *sum2i)
-{
-    uint16_t sum1 = *sum1i, sum2 = *sum2i;
-
-    while (bytes) {
-        size_t tlen = bytes > 20 ? 20 : bytes;
-        bytes -= tlen;
-        do {
-            sum2 += sum1 += *data++;
-        } while (--tlen);
-        sum1 = (sum1 & 0xff) + (sum1 >> 8);
-        sum2 = (sum2 & 0xff) + (sum2 >> 8);
-    }
-    *sum1i = sum1;
-    *sum2i = sum2;
-}
-
-static uint16_t fletcher16_fin(uint16_t sum1, uint16_t sum2)
-{
-  sum1 = (sum1 & 0xff) + (sum1 >> 8);
-  sum2 = (sum2 & 0xff) + (sum2 >> 8);
-  return (sum2 << 8) | sum1;
+    return event;
 }
 
 /**************************************************************************
@@ -576,10 +636,9 @@ int _open_connection(char *name, char* option)
 
 void check_fatal_error(const char* msg)
 {
-    if (errno) {
-        perror(msg);
-        exit(1);
-    }
+    assert(errno);
+    perror(msg);
+    exit(1);
 }
 
 typedef struct {
@@ -597,16 +656,23 @@ void channel_listen(channel_t* chan, int channel_number) {
     snprintf(&bound_name.sun_path[1], sizeof(bound_name.sun_path) - 1, "rethos/%d", channel_number);
     total_size = sizeof(bound_name.sun_family) + 1 + strlen(&bound_name.sun_path[1]);
     dsock = socket(AF_UNIX, SOCK_SEQPACKET, 0);
-    check_fatal_error("Could not create domain socket");
+    if (dsock == -1) {
+        check_fatal_error("Could not create domain socket");
+    }
     flags = fcntl(dsock, F_GETFL);
-    check_fatal_error("Could not get socket flags");
-    assert(flags != -1);
-    fcntl(dsock, F_SETFL, flags | O_NONBLOCK);
-    check_fatal_error("Could not set socket flags");
-    bind(dsock, (struct sockaddr*) &bound_name, total_size);
-    check_fatal_error("Could not bind domain socket");
-    listen(dsock, 0);
-    check_fatal_error("Could not listen on domain socket");
+    if (flags == -1) {
+        check_fatal_error("Could not get socket flags");
+    }
+    flags = fcntl(dsock, F_SETFL, flags | O_NONBLOCK);
+    if (flags == -1) {
+        check_fatal_error("Could not set socket flags");
+    }
+    if (bind(dsock, (struct sockaddr*) &bound_name, total_size) == -1) {
+        check_fatal_error("Could not bind domain socket");
+    }
+    if (listen(dsock, 0) == -1) {
+        check_fatal_error("Could not listen on domain socket");
+    }
 
     chan->server_socket = dsock;
     chan->client_socket = -1;
@@ -616,6 +682,27 @@ int main(int argc, char *argv[])
 {
     char inbuf[MTU];
     char *serial_option = NULL;
+
+    /* Block the SIGALRM signal. */
+    sigset_t oldmask;
+    sigset_t toblock;
+    if (sigemptyset(&toblock) == -1) {
+        check_fatal_error("Could not create empty signal set");
+    }
+    if (sigaddset(&toblock, SIGALRM) == -1) {
+        check_fatal_error("Could not add signal to signal set");
+    }
+    if (sigprocmask(SIG_BLOCK, &toblock, &oldmask) == -1) {
+        check_fatal_error("Could not block signal");
+    }
+
+    struct sigaction act;
+    memset(&act, 0x00, sizeof(struct sigaction));
+    act.sa_handler = alarm_handler;
+
+    if (sigaction(SIGALRM, &act, NULL) == -1) {
+        check_fatal_error("Could not set up signal handler for alarm");
+    }
 
     serial_t serial = {0};
 
@@ -653,6 +740,8 @@ int main(int argc, char *argv[])
         channel_listen(&domain_sockets[i], i);
     }
 
+    alarm(STATS_INTERVAL);
+
     while (true) {
         int activity;
         int max_fd = 0;
@@ -673,11 +762,35 @@ int main(int argc, char *argv[])
                 UPDATE_MAX_FD(domain_sockets[i].client_socket);
             }
         }
-        activity = select(max_fd + 1, &readfds, NULL, NULL, NULL);
 
-        if ((activity < 0) && (errno != EINTR))
-        {
-            perror("select error");
+        activity = pselect(max_fd + 1, &readfds, NULL, NULL, NULL, &oldmask);
+
+        if (activity == -1 && (errno != EINTR || alarm_fired == 0)) {
+            check_fatal_error("Could not wait for event");
+        }
+
+        if (alarm_fired == 1) {
+            alarm_fired = 0;
+            alarm(STATS_INTERVAL);
+
+            printf("================================================================================\n");
+            printf("Received %" PRIu64 " frames on serial link; forwarded %" PRIu64 " on domain sockets\n", stats.global.serial_received, stats.global.domain_forwarded);
+            printf("Received %" PRIu64 " frames on domain sockets; forwarded %" PRIu64 " on serial link\n", stats.global.domain_received, stats.global.serial_forwarded);
+            printf("Lost %" PRIu64 " frames, %" PRIu64 " of which were detected on the serial link\n", stats.global.lost_frames, stats.global.bad_frames);
+            printf("An additional %" PRIu64 " frames were dropped, due to lack of a listening process\n", stats.global.drop_notconnected);
+
+            if (domain_sockets[RESERVED_CHANNEL].client_socket != -1) {
+                checked_write(domain_sockets[RESERVED_CHANNEL].client_socket, &stats, sizeof(stats));
+            }
+        }
+
+        if (activity == -1) {
+            /* The file descriptor sets were unmodified. The only reason pselect
+             * returned was because of the signal. So readfds just contains
+             * what we originally put there, and there are really no file
+             * descriptors that are ready.
+             */
+            continue;
         }
 
         if (FD_ISSET(serial_fd, &readfds)) {
@@ -685,26 +798,40 @@ int main(int argc, char *argv[])
             if (n > 0) {
                 char *ptr = inbuf;
                 for (i = 0; i != n; i++) {
-                    bool ready = _serial_handle_byte(&serial, *ptr++);
-                    if (ready) {
-                        /* TODO check the checksum, and use the sequence number, and
-                         * message type for reliable delivery. */
-
-                        int out_fd;
-                        if (serial.channel == STDIN_CHANNEL) {
-                            out_fd = STDOUT_FILENO;
-                        } else if (serial.channel == TUNTAP_CHANNEL) {
-                            out_fd = tap_fd;
-                        } else if (serial.channel < NUM_CHANNELS && domain_sockets[serial.channel].client_socket != -1) {
-                            out_fd = domain_sockets[serial.channel].client_socket;
-                        } else {
-                            fprintf(stderr, "Got message on channel %d, which is not connected: dropping message\n", serial.channel);
+                    serial_event_t event = _serial_handle_byte(&serial, *ptr++);
+                    if (event == FRAME_READY) {
+                        if (serial.channel >= NUM_CHANNELS) {
                             continue;
                         }
 
+                        stats.channel[serial.channel].serial_received++;
+                        stats.global.serial_received++;
+
+                        /* TODO Use the sequence number and
+                         * message type for reliable delivery. */
+
                         printf("Got a frame on channel %d\n", serial.channel);
 
-                        checked_write(out_fd, serial.frame, serial.numbytes);
+                        if (serial.channel == STDIN_CHANNEL) {
+                            checked_write(STDOUT_FILENO, serial.frame, serial.numbytes);
+                        } else if (serial.channel == TUNTAP_CHANNEL) {
+                            checked_write(tap_fd, serial.frame, serial.numbytes);
+                        }
+
+                        if (domain_sockets[serial.channel].client_socket != -1) {
+                            checked_write(domain_sockets[serial.channel].client_socket, serial.frame, serial.numbytes);
+                            stats.channel[serial.channel].domain_forwarded++;
+                            stats.global.domain_forwarded++;
+                        } else {
+                            fprintf(stderr, "Got message on channel %d, which is not connected: dropping message\n", serial.channel);
+                            stats.channel[serial.channel].drop_notconnected++;
+                            if (serial.channel != STDIN_CHANNEL && serial.channel != TUNTAP_CHANNEL) {
+                                stats.global.drop_notconnected++;
+                            }
+                        }
+                    } else if (event == FRAME_DROPPED) {
+                        stats.global.bad_frames++;
+                        stats.global.lost_frames++;
                     }
                 }
             }
@@ -740,8 +867,9 @@ int main(int argc, char *argv[])
                     struct sockaddr_un client_addr;
                     socklen_t client_addr_len;
                     int client_socket = accept(dsock, (struct sockaddr*) &client_addr, &client_addr_len);
-                    check_fatal_error("accept connection on domain socket");
-                    assert(client_socket != -1);
+                    if (client_socket == -1) {
+                        check_fatal_error("accept connection on domain socket");
+                    }
                     printf("Accepted client process on channel %d\n", i);
                     domain_sockets[i].client_socket = client_socket;
 
@@ -762,7 +890,12 @@ int main(int argc, char *argv[])
                         printf("Client process on channel %d disconnected\n", i);
                         continue;
                     }
+
+                    stats.channel[i].domain_received++;
+                    stats.global.domain_received++;
                     rethos_send_frame(&serial, inbuf, res, i, RETHOS_FRAME_TYPE_DATA);
+                    stats.channel[i].serial_forwarded++;
+                    stats.global.domain_forwarded++;
                 }
             }
         }
