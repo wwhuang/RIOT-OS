@@ -56,6 +56,8 @@
 #define TCP_DEV "tcp:"
 #define IOTLAB_TCP_PORT "20000"
 
+bool have_stdin = true;
+
 typedef struct {
     uint64_t serial_received;
     uint64_t domain_forwarded;
@@ -747,8 +749,10 @@ int main(int argc, char *argv[])
         int max_fd = 0;
         #define UPDATE_MAX_FD(fd) max_fd = ((fd) > max_fd ? (fd) : max_fd);
         FD_ZERO(&readfds);
-        FD_SET(STDIN_FILENO, &readfds);
-        UPDATE_MAX_FD(STDIN_FILENO);
+        if (have_stdin) {
+            FD_SET(STDIN_FILENO, &readfds);
+            UPDATE_MAX_FD(STDIN_FILENO);
+        }
         FD_SET(tap_fd, &readfds);
         UPDATE_MAX_FD(tap_fd);
         FD_SET(serial_fd, &readfds);
@@ -853,7 +857,8 @@ int main(int argc, char *argv[])
         if (FD_ISSET(STDIN_FILENO, &readfds)) {
             ssize_t res = read(STDIN_FILENO, inbuf, sizeof(inbuf));
             if (res <= 0) {
-                fprintf(stderr, "error reading from stdio. res=%zi\n", res);
+                fprintf(stderr, "Error reading from stdio. res=%zi. Disabling stdin functionality...\n", res);
+                have_stdin = false;
                 continue;
             }
             rethos_send_frame(&serial, inbuf, res, STDIN_CHANNEL, RETHOS_FRAME_TYPE_DATA);
