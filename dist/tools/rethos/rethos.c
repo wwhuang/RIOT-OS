@@ -175,6 +175,37 @@ typedef struct {
     uint16_t out_seqno;
 } serial_t;
 
+static void fletcher16_add(const uint8_t *data, size_t bytes, uint16_t *sum1i, uint16_t *sum2i)
+{
+    uint16_t sum1 = *sum1i, sum2 = *sum2i;
+
+    while (bytes) {
+        size_t tlen = bytes > 20 ? 20 : bytes;
+        bytes -= tlen;
+        do {
+            sum2 += sum1 += *data++;
+        } while (--tlen);
+        sum1 = (sum1 & 0xff) + (sum1 >> 8);
+        sum2 = (sum2 & 0xff) + (sum2 >> 8);
+    }
+    *sum1i = sum1;
+    *sum2i = sum2;
+}
+
+static uint16_t fletcher16_fin(uint16_t sum1, uint16_t sum2)
+{
+  sum1 = (sum1 & 0xff) + (sum1 >> 8);
+  sum2 = (sum2 & 0xff) + (sum2 >> 8);
+  return (sum2 << 8) | sum1;
+}
+
+static uint16_t fletcher16_compute(const uint8_t* data, size_t bytes) {
+    uint16_t sum1 = 0xFF;
+    uint16_t sum2 = 0xFF;
+    fletcher16_add(data, bytes, &sum1, &sum2);
+    return fletcher16_fin(sum1, sum2);
+}
+
 static bool _serial_handle_byte(serial_t *serial, char c)
 {
     bool ready = false;
@@ -245,6 +276,11 @@ static bool _serial_handle_byte(serial_t *serial, char c)
         case WAIT_CHECKSUM_2:
             serial->checksum |= (((uint16_t) c) << 8);
 
+            /* Check the checksum. */
+            if (serial->checksum != fletcher16_compute(serial->frame, serial->numbytes)) {
+                goto handle_corrupt_frame;
+            }
+
             /* Set "ready" so the frame is delivered to the handler. */
             ready = true;
 
@@ -264,30 +300,6 @@ done_char:
     /* Finished handling this character. */
     serial->in_escape = false;
     return ready;
-}
-
-static void fletcher16_add(const uint8_t *data, size_t bytes, uint16_t *sum1i, uint16_t *sum2i)
-{
-    uint16_t sum1 = *sum1i, sum2 = *sum2i;
-
-    while (bytes) {
-        size_t tlen = bytes > 20 ? 20 : bytes;
-        bytes -= tlen;
-        do {
-            sum2 += sum1 += *data++;
-        } while (--tlen);
-        sum1 = (sum1 & 0xff) + (sum1 >> 8);
-        sum2 = (sum2 & 0xff) + (sum2 >> 8);
-    }
-    *sum1i = sum1;
-    *sum2i = sum2;
-}
-
-static uint16_t fletcher16_fin(uint16_t sum1, uint16_t sum2)
-{
-  sum1 = (sum1 & 0xff) + (sum1 >> 8);
-  sum2 = (sum2 & 0xff) + (sum2 >> 8);
-  return (sum2 << 8) | sum1;
 }
 
 /**************************************************************************
@@ -693,7 +705,7 @@ int main(int argc, char *argv[])
                 for (i = 0; i != n; i++) {
                     bool ready = _serial_handle_byte(&serial, *ptr++);
                     if (ready) {
-                        /* TODO check the checksum, and use the sequence number, and
+                        /* TODO Use the sequence number and
                          * message type for reliable delivery. */
 
                         int out_fd;
