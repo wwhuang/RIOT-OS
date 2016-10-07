@@ -19,7 +19,11 @@
 
 #if defined(MODULE_ETHOS) || defined(MODULE_RETHOS)
 
+#ifdef MODULE_RETHOS
+#include "rethos.h"
+#else
 #include "ethos.h"
+#endif
 #include "periph/uart.h"
 #include "net/gnrc/netdev2.h"
 #include "net/gnrc/netdev2/eth.h"

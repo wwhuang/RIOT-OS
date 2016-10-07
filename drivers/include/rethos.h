@@ -141,6 +141,10 @@ typedef struct {
     uint32_t stats_rx_bytes;
     uint32_t stats_rx_frames;
 
+    uint32_t stats_tx_bytes;
+    uint32_t stats_tx_frames;
+    uint32_t stats_tx_retries;
+
   //  uint8_t txframebuf [RETHOS_TX_BUF];
     uint16_t txseq;
   //  uint16_t txlen;

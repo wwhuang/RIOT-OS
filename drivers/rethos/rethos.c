@@ -82,6 +82,12 @@ void ethos_setup(ethos_t *dev, const ethos_params_t *params)
     dev->rx_buffer_index = 0;
     dev->handlers = NULL;
     dev->txseq = 0;
+    dev->stats_tx_frames = 0;
+    dev->stats_tx_retries = 0;
+    dev->stats_tx_bytes = 0;
+    dev->stats_rx_frames = 0;
+    dev->stats_rx_cksum_fail = 0;
+    dev->stats_rx_bytes = 0;
 
     tsrb_init(&dev->netdev_inbuf, (char*)params->buf, params->bufsize);
     mutex_init(&dev->out_mutex);
@@ -152,22 +158,27 @@ static void sm_char(ethos_t *dev, uint8_t c)
   {
     case SM_WAIT_TYPE:
       dev->rx_frame_type = c;
+      fletcher16_add(&c, 1, &dev->rx_cksum1, &dev->rx_cksum2);
       dev->state = SM_WAIT_SEQ0;
       return;
     case SM_WAIT_SEQ0:
       dev->rx_seqno = c;
+      fletcher16_add(&c, 1, &dev->rx_cksum1, &dev->rx_cksum2);
       dev->state = SM_WAIT_SEQ1;
       return;
     case SM_WAIT_SEQ1:
       dev->rx_seqno |= (((uint16_t)c)<<8);
+      fletcher16_add(&c, 1, &dev->rx_cksum1, &dev->rx_cksum2);
       dev->state = SM_WAIT_CHANNEL;
       return;
     case SM_WAIT_CHANNEL:
       dev->rx_channel = c;
+      fletcher16_add(&c, 1, &dev->rx_cksum1, &dev->rx_cksum2);
       dev->state = SM_IN_FRAME;
       return;
     case SM_IN_FRAME:
       dev->rx_buffer[dev->rx_buffer_index] = c;
+      fletcher16_add(&c, 1, &dev->rx_cksum1, &dev->rx_cksum2);
       if ((dev->rx_buffer_index++) > RETHOS_RX_BUF_SZ) {
         sm_invalidate(dev);
       }
@@ -317,6 +328,8 @@ void rethos_start_frame(ethos_t *dev, const uint8_t *data, size_t thislen, uint8
   preamble_buffer[4] = seqno >> 8;
   preamble_buffer[5] = channel;
 
+  dev->stats_tx_bytes += 4 + thislen;
+
   fletcher16_add(&preamble_buffer[2], 4, &dev->flsum1, &dev->flsum2);
 
   uart_write(dev->uart, preamble_buffer, 2);
@@ -339,6 +352,7 @@ void rethos_start_frame(ethos_t *dev, const uint8_t *data, size_t thislen, uint8
 void rethos_continue_frame(ethos_t *dev, const uint8_t *data, size_t thislen)
 {
   fletcher16_add(data, thislen, &dev->flsum1, &dev->flsum2);
+  dev->stats_tx_bytes += thislen;
   //todo replace with a little bit of chunking
   for (size_t i = 0; i<thislen; i++) {
     _write_escaped(dev->uart, data[i]);
@@ -351,7 +365,7 @@ void rethos_end_frame(ethos_t *dev)
   uart_write(dev->uart, _end_frame, 2);
   _write_escaped(dev->uart, cksum & 0xFF);
   _write_escaped(dev->uart, cksum >> 8);
-
+  dev->stats_tx_frames += 1;
   if (!irq_is_in()) {
       mutex_unlock(&dev->out_mutex);
   }

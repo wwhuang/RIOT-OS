@@ -11,6 +11,8 @@ export RESET = $(RIOTBOARD)/$(BOARD)/dist/reset.sh
 export FLASHER = $(RIOTBOARD)/$(BOARD)/dist/flash.sh
 export FFLAGS  = $(BINDIR) $(HEXFILE)
 
+CFLAGS += -O0 -g3
+
 export OFLAGS    = -O binary --gap-fill 0xff
 export HEXFILE = $(ELFFILE:.elf=.bin)
 export DEBUGGER_FLAGS = $(BINDIR) $(ELFFILE)
