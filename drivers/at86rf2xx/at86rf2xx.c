@@ -83,11 +83,11 @@ void at86rf2xx_reset(at86rf2xx_t *dev)
 #endif
 
     /* make sure we mark the address as non-multicast and not globally unique */
-    cpuid[0] &= ~(0x01);
-    cpuid[0] |= 0x02;
+    //cpuid[0] &= ~(0x01);
+    //cpuid[0] |= 0x02;
     /* copy and set long address */
     memcpy(&addr_long, cpuid, IEEE802154_LONG_ADDRESS_LEN);
-    at86rf2xx_set_addr_long(dev, NTOHLL(addr_long.uint64.u64));
+    at86rf2xx_set_addr_long(dev, addr_long.uint64.u64);
     at86rf2xx_set_addr_short(dev, NTOHS(addr_long.uint16[0].u16));
 #else
     at86rf2xx_set_addr_long(dev, AT86RF2XX_DEFAULT_ADDR_LONG);
