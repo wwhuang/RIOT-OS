@@ -161,10 +161,13 @@ static const pwm_conf_t pwm_config[] = {
 #define SPI_0_SCLK_MUX      GPIO_MUX_F
 #define SPI_0_MISO          GPIO_PIN(PC, 19)
 #define SPI_0_MISO_MUX      GPIO_MUX_F
-#define SPI_0_MISO_PAD      SERCOM_RX_PAD_0
+#define SPI_0_MISO_PAD      SPI_PAD_MISO_0
 #define SPI_0_MOSI          GPIO_PIN(PB, 30)
 #define SPI_0_MOSI_MUX      GPIO_MUX_F
-#define SPI_0_MOSI_PAD      SPI_PAD_2_SCK_3
+#define SPI_0_MOSI_PAD      SPI_PAD_MOSI_2_SCK_3
+/** @} */
+
+
 
 /**
  * @name I2C configuration
@@ -187,6 +190,7 @@ static const pwm_conf_t pwm_config[] = {
 #define I2C_0_SDA           GPIO_PIN(PA, 16)
 #define I2C_0_SCL           GPIO_PIN(PA, 17)
 #define I2C_0_MUX           GPIO_MUX_D
+/** @} */
 
 /**
  * @name Random Number Generator configuration
