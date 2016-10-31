@@ -16,6 +16,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <time.h>
 #include <unistd.h>
 
 #include <netinet/in.h>
@@ -51,8 +52,6 @@
 #define TUNTAP_CHANNEL 2
 #define NUM_CHANNELS 256
 
-#define STATS_INTERVAL 15
-
 #define TCP_DEV "tcp:"
 #define IOTLAB_TCP_PORT "20000"
 
@@ -85,12 +84,50 @@ struct {
     channel_stats_t channel[NUM_CHANNELS];
 } __attribute__((packed)) stats = {0};
 
-volatile sig_atomic_t alarm_fired = 0;
 
-/* This function executes in a signal handler. */
-static void alarm_handler(int signum) {
+/* Code to handle timers.
+ * There are two timers, a periodic stats timer, and a retransmission timer.
+ */
+#define STATS_TIMER_TYPE 0
+#define REXMIT_TIMER_TYPE 1
+
+/* Stats timeout is 15 seconds. Type is struct timespec. */
+#define STATS_TIMEOUT {(time_t) 5, 0L}
+
+/* Retransmission timeout is 100 ms. Type is struct timespec. */
+#define REXMIT_TIMEOUT {(time_t) 0, 100000000L}
+
+const struct itimerspec stats_timer_spec = { STATS_TIMEOUT, STATS_TIMEOUT };
+const struct itimerspec rexmit_timer_spec = { REXMIT_TIMEOUT, REXMIT_TIMEOUT };
+const struct itimerspec cancel_timer_spec = { {0, 0L}, {0, 0L} };
+
+timer_t stats_timer;
+timer_t rexmit_timer;
+
+volatile sig_atomic_t stats_fired = 0;
+volatile sig_atomic_t rexmit_fired = 0;
+
+/* This function executes in the SIGUSR1 signal handler. */
+static void timer_handler(int signum, siginfo_t* info, void* context) {
     (void) signum;
-    alarm_fired = 1;
+    (void) context;
+
+    int timer_type = info->si_value.sival_int;
+    switch (timer_type) {
+    case STATS_TIMER_TYPE:
+        stats_fired = 1;
+        break;
+    case REXMIT_TIMER_TYPE:
+        rexmit_fired = 1;
+        break;
+    }
+}
+
+void check_fatal_error(const char* msg)
+{
+    assert(errno);
+    perror(msg);
+    exit(1);
 }
 
 static void usage(void)
@@ -182,6 +219,9 @@ void set_blocking (int fd, int should_block)
 #define RETHOS_FRAME_TYPE_HB             (0x2)
 #define RETHOS_FRAME_TYPE_HB_REPLY       (0x3)
 
+#define RETHOS_FRAME_TYPE_ACK            (0x4)
+#define RETHOS_FRAME_TYPE_NACK           (0x5)
+
 /** @} */
 
 static const uint8_t _esc_esc[] = {RETHOS_ESC_CHAR, RETHOS_LITERAL_ESC};
@@ -219,6 +259,17 @@ typedef struct {
 
     /* State for writing data. */
     uint16_t out_seqno;
+
+    /* Last data frame sent, used for retransmissions. */
+    // rexmit_frametype is always RETHOS_FRAME_TYPE_DATA
+    uint16_t rexmit_seqno;
+    uint8_t rexmit_channel;
+    size_t rexmit_numbytes;
+    uint8_t rexmit_frame[MTU];
+    bool rexmit_acked;
+
+    /* Last received sequence number, used to detect losses. */
+    uint16_t last_rcvd_seqno;
 } serial_t;
 
 static void fletcher16_add(const uint8_t *data, size_t bytes, uint16_t *sum1i, uint16_t *sum2i)
@@ -341,8 +392,8 @@ static serial_event_t _serial_handle_byte(serial_t *serial, char c)
     goto done_char;
 
 handle_corrupt_frame:
+    /* It's the caller's responsibility to send a NACK if this happens. */
     event = FRAME_DROPPED;
-    /* TODO: Send a NACK here. */
 
 drop_frame_state:
     /* Start listening for a frame at the beginning. */
@@ -387,10 +438,10 @@ int tun_alloc(char *dev, int flags) {
   return fd;
 }
 
-static void _write_escaped(int fd, const char* buf, ssize_t n)
+static void _write_escaped(int fd, const uint8_t* buf, ssize_t n)
 {
     for (ssize_t i = 0; i < n; i++) {
-        char c = buf[i];
+        char c = (char) buf[i];
         if (c == RETHOS_ESC_CHAR) {
             checked_write(fd, _esc_esc, sizeof(_esc_esc));
         }
@@ -398,48 +449,75 @@ static void _write_escaped(int fd, const char* buf, ssize_t n)
     }
 }
 
-void rethos_send_frame(serial_t* serial, const uint8_t *data, size_t thislen, uint8_t channel, uint8_t frame_type)
+void _send_frame(serial_t* serial, const uint8_t *data, size_t thislen, uint8_t channel, uint16_t seqno, uint8_t frame_type)
 {
-  uint8_t preamble_buffer[4];
-  uint8_t postamble_buffer[2];
+    uint8_t preamble_buffer[4];
+    uint8_t postamble_buffer[2];
 
-  uint16_t flsum1 = 0xFF;
-  uint16_t flsum2 = 0xFF;
+    uint16_t flsum1 = 0xFF;
+    uint16_t flsum2 = 0xFF;
 
-  uint16_t seqno = ++serial->out_seqno;
+    //This is where the checksum starts
+    preamble_buffer[0] = frame_type;
+    preamble_buffer[1] = seqno & 0xFF; //Little endian cos im a rebel
+    preamble_buffer[2] = seqno >> 8;
+    preamble_buffer[3] = channel;
 
-  //This is where the checksum starts
-  preamble_buffer[0] = frame_type;
-  preamble_buffer[1] = seqno & 0xFF; //Little endian cos im a rebel
-  preamble_buffer[2] = seqno >> 8;
-  preamble_buffer[3] = channel;
+    checked_write(serial->fd, _start_frame, sizeof(_start_frame));
 
-  checked_write(serial->fd, _start_frame, sizeof(_start_frame));
+    fletcher16_add(preamble_buffer, sizeof(preamble_buffer), &flsum1, &flsum2);
+    _write_escaped(serial->fd, preamble_buffer, sizeof(preamble_buffer));
 
-  fletcher16_add(preamble_buffer, sizeof(preamble_buffer), &flsum1, &flsum2);
-  _write_escaped(serial->fd, preamble_buffer, sizeof(preamble_buffer));
+    fletcher16_add(data, thislen, &flsum1, &flsum2);
+    _write_escaped(serial->fd, data, thislen);
 
-  fletcher16_add(data, thislen, &flsum1, &flsum2);
-  _write_escaped(serial->fd, data, thislen);
+    checked_write(serial->fd, _end_frame, sizeof(_end_frame));
 
-  checked_write(serial->fd, _end_frame, sizeof(_end_frame));
+    uint16_t cksum = fletcher16_fin(flsum1, flsum2);
+    postamble_buffer[0] = (uint8_t) cksum;
+    postamble_buffer[1] = (uint8_t) (cksum >> 8);
 
-  uint16_t cksum = fletcher16_fin(flsum1, flsum2);
-  postamble_buffer[0] = (uint8_t) cksum;
-  postamble_buffer[1] = (uint8_t) (cksum >> 8);
-
-  _write_escaped(serial->fd, postamble_buffer, sizeof(postamble_buffer));
-
+    _write_escaped(serial->fd, postamble_buffer, sizeof(postamble_buffer));
 }
 
-static void _clear_neighbor_cache(const char *ifname)
+void rethos_send_data_frame(serial_t* serial, const uint8_t* data, size_t datalen, uint8_t channel) {
+    uint16_t seqno = ++serial->out_seqno;
+
+    /* Store this data, in case we need to retransmit it. */
+    serial->rexmit_seqno = seqno;
+    serial->rexmit_channel = channel;
+    serial->rexmit_numbytes = datalen;
+    memcpy(serial->rexmit_frame, data, datalen);
+    serial->rexmit_acked = false;
+
+    _send_frame(serial, data, datalen, channel, seqno, RETHOS_FRAME_TYPE_DATA);
+
+    /* Set the rexmit timer. */
+    if (timer_settime(rexmit_timer, 0, &rexmit_timer_spec, NULL) == -1) {
+        check_fatal_error("Could not set rexmit timer");
+    }
+}
+
+void rethos_rexmit_data_frame(serial_t* serial) {
+    _send_frame(serial, serial->rexmit_frame, serial->rexmit_numbytes, serial->rexmit_channel, serial->rexmit_seqno, RETHOS_FRAME_TYPE_DATA);
+}
+
+void rethos_send_ack_frame(serial_t* serial, uint16_t seqno) {
+    _send_frame(serial, NULL, 0, RESERVED_CHANNEL, seqno, RETHOS_FRAME_TYPE_ACK);
+}
+
+void rethos_send_nack_frame(serial_t* serial) {
+    _send_frame(serial, NULL, 0, RESERVED_CHANNEL, 0, RETHOS_FRAME_TYPE_NACK);
+}
+
+/*static void _clear_neighbor_cache(const char *ifname)
 {
     char tmp[20 + IFNAMSIZ];
     snprintf(tmp, sizeof(tmp), "ip neigh flush dev %s", ifname);
     if (system(tmp) < 0) {
         fprintf(stderr, "error while flushing device neighbor cache\n");
     }
-}
+}*/
 
 static int _parse_baudrate(const char *arg, unsigned *baudrate)
 {
@@ -638,13 +716,6 @@ int _open_connection(char *name, char* option)
     }
 }
 
-void check_fatal_error(const char* msg)
-{
-    assert(errno);
-    perror(msg);
-    exit(1);
-}
-
 typedef struct {
     int server_socket;
     int client_socket;
@@ -684,16 +755,16 @@ void channel_listen(channel_t* chan, int channel_number) {
 
 int main(int argc, char *argv[])
 {
-    char inbuf[MTU];
+    uint8_t inbuf[MTU];
     char *serial_option = NULL;
 
-    /* Block the SIGALRM signal. */
+    /* Block the SIGUSR1 signal. */
     sigset_t oldmask;
     sigset_t toblock;
     if (sigemptyset(&toblock) == -1) {
         check_fatal_error("Could not create empty signal set");
     }
-    if (sigaddset(&toblock, SIGALRM) == -1) {
+    if (sigaddset(&toblock, SIGUSR1) == -1) {
         check_fatal_error("Could not add signal to signal set");
     }
     if (sigprocmask(SIG_BLOCK, &toblock, &oldmask) == -1) {
@@ -702,10 +773,10 @@ int main(int argc, char *argv[])
 
     struct sigaction act;
     memset(&act, 0x00, sizeof(struct sigaction));
-    act.sa_handler = alarm_handler;
-
-    if (sigaction(SIGALRM, &act, NULL) == -1) {
-        check_fatal_error("Could not set up signal handler for alarm");
+    act.sa_sigaction = timer_handler;
+    act.sa_flags = SA_SIGINFO;
+    if (sigaction(SIGUSR1, &act, NULL) == -1) {
+        check_fatal_error("Could not set up signal handler for SIGUSR1");
     }
 
     serial_t serial = {0};
@@ -744,7 +815,23 @@ int main(int argc, char *argv[])
         channel_listen(&domain_sockets[i], i);
     }
 
-    alarm(STATS_INTERVAL);
+    struct sigevent sev;
+    memset(&sev, 0x00, sizeof(struct sigevent));
+    sev.sigev_notify = SIGEV_SIGNAL;
+    sev.sigev_signo = SIGUSR1;
+    sev.sigev_value.sival_int = STATS_TIMER_TYPE;
+    if (timer_create(CLOCK_MONOTONIC, &sev, &stats_timer) == -1) {
+        check_fatal_error("Could not create rexmit timer");
+    }
+
+    sev.sigev_value.sival_int = REXMIT_TIMER_TYPE;
+    if (timer_create(CLOCK_MONOTONIC, &sev, &rexmit_timer) == -1) {
+        check_fatal_error("Could not create rexmit timer");
+    }
+
+    if (timer_settime(stats_timer, 0, &stats_timer_spec, NULL) == -1) {
+        check_fatal_error("Could not set stats timer");
+    }
 
     while (true) {
         int activity;
@@ -771,13 +858,12 @@ int main(int argc, char *argv[])
 
         activity = pselect(max_fd + 1, &readfds, NULL, NULL, NULL, &oldmask);
 
-        if (activity == -1 && (errno != EINTR || alarm_fired == 0)) {
+        if (activity == -1 && (errno != EINTR || (stats_fired == 0 && rexmit_fired == 0))) {
             check_fatal_error("Could not wait for event");
         }
 
-        if (alarm_fired == 1) {
-            alarm_fired = 0;
-            alarm(STATS_INTERVAL);
+        if (stats_fired == 1) {
+            stats_fired = 0;
 
             printf("================================================================================\n");
             printf("Received %" PRIu64 " frames on serial link; forwarded %" PRIu64 " on domain sockets\n", stats.global.serial_received, stats.global.domain_forwarded);
@@ -787,6 +873,14 @@ int main(int argc, char *argv[])
 
             if (domain_sockets[RESERVED_CHANNEL].client_socket != -1) {
                 checked_write(domain_sockets[RESERVED_CHANNEL].client_socket, &stats, sizeof(stats));
+            }
+        }
+
+        if (rexmit_fired == 1) {
+            rexmit_fired = 0;
+
+            if (!serial.rexmit_acked) {
+                rethos_rexmit_data_frame(&serial);
             }
         }
 
@@ -800,9 +894,9 @@ int main(int argc, char *argv[])
         }
 
         if (FD_ISSET(serial_fd, &readfds)) {
-            ssize_t n = read(serial_fd, inbuf, sizeof(inbuf));
+            ssize_t n = read(serial_fd, (char*) inbuf, sizeof(inbuf));
             if (n > 0) {
-                char *ptr = inbuf;
+                char* ptr = (char*) inbuf;
                 for (i = 0; i != n; i++) {
                     serial_event_t event = _serial_handle_byte(&serial, *ptr++);
                     if (event == FRAME_READY) {
@@ -813,8 +907,38 @@ int main(int argc, char *argv[])
                         stats.channel[serial.channel].serial_received++;
                         stats.global.serial_received++;
 
-                        /* TODO Use the sequence number and
+                        /* Use the sequence number and
                          * message type for reliable delivery. */
+                        if (serial.channel == RESERVED_CHANNEL) {
+                            if (serial.frametype == RETHOS_FRAME_TYPE_NACK) {
+                                /* Retransmit the last frame that was sent. */
+                                rethos_rexmit_data_frame(&serial);
+                                continue;
+                            } else if (serial.frametype == RETHOS_FRAME_TYPE_ACK) {
+                                if (serial.in_seqno == serial.rexmit_seqno) {
+                                    /* Mark the frame to be retransmitted as having been ACKed so we don't retransmit it on timeout. */
+                                    serial.rexmit_acked = true;
+
+                                    /* Cancel the pending rexmit timer. */
+                                    if (timer_settime(rexmit_timer, 0, &cancel_timer_spec, NULL) == -1) {
+                                        check_fatal_error("Could not cancel rexmit timer");
+                                    }
+                                }
+                                continue;
+                            }
+                        }
+
+                        /* If it's a duplicate, just drop the frame. */
+                        if (serial.in_seqno == serial.last_rcvd_seqno) {
+                            continue;
+                        }
+
+                        /* ACK the frame we just received. */
+                        rethos_send_ack_frame(&serial, serial.in_seqno);
+
+                        /* Record the number of lost frames. */
+                        stats.global.lost_frames += (serial.in_seqno - serial.last_rcvd_seqno - 1);
+                        serial.last_rcvd_seqno = serial.in_seqno;
 
                         printf("Got a frame on channel %d\n", serial.channel);
 
@@ -838,6 +962,9 @@ int main(int argc, char *argv[])
                     } else if (event == FRAME_DROPPED) {
                         stats.global.bad_frames++;
                         stats.global.lost_frames++;
+
+                        /* Send a NACK. */
+                        rethos_send_nack_frame(&serial);
                     }
                 }
             }
@@ -853,7 +980,7 @@ int main(int argc, char *argv[])
                 fprintf(stderr, "error reading from tap device. res=%zi\n", res);
                 continue;
             }
-            rethos_send_frame(&serial, inbuf, res, TUNTAP_CHANNEL, RETHOS_FRAME_TYPE_DATA);
+            rethos_send_data_frame(&serial, inbuf, res, TUNTAP_CHANNEL);
         }
 
         if (FD_ISSET(STDIN_FILENO, &readfds)) {
@@ -863,7 +990,7 @@ int main(int argc, char *argv[])
                 have_stdin = false;
                 continue;
             }
-            rethos_send_frame(&serial, inbuf, res, STDIN_CHANNEL, RETHOS_FRAME_TYPE_DATA);
+            rethos_send_data_frame(&serial, inbuf, res, STDIN_CHANNEL);
         }
 
         for (i = 0; i < NUM_CHANNELS; i++) {
@@ -888,7 +1015,6 @@ int main(int argc, char *argv[])
                 dsock = domain_sockets[i].client_socket;
                 if (FD_ISSET(dsock, &readfds)) {
                     ssize_t res = read(dsock, inbuf, sizeof(inbuf));
-                    char msgbuf[100];
                     if (res <= 0) {
                         assert(errno != EWOULDBLOCK);
                         close(dsock);
@@ -900,7 +1026,7 @@ int main(int argc, char *argv[])
 
                     stats.channel[i].domain_received++;
                     stats.global.domain_received++;
-                    rethos_send_frame(&serial, inbuf, res, i, RETHOS_FRAME_TYPE_DATA);
+                    rethos_send_data_frame(&serial, inbuf, res, i);
                     stats.channel[i].serial_forwarded++;
                     stats.global.domain_forwarded++;
                 }
