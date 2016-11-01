@@ -911,8 +911,19 @@ int main(int argc, char *argv[])
                          * message type for reliable delivery. */
                         if (serial.channel == RESERVED_CHANNEL) {
                             if (serial.frametype == RETHOS_FRAME_TYPE_NACK) {
-                                /* Retransmit the last frame that was sent. */
-                                rethos_rexmit_data_frame(&serial);
+                                /* If we got a NACK for something that was already ACKed, it's
+                                 * probably because we sent a NACK that got corrupted, or an ACK
+                                 * that got corrupted.
+                                 *
+                                 * Sending a NACK could cause a NACK storm, so instead just ACK
+                                 * the last packet we received.
+                                 */
+                                if (serial.rexmit_acked) {
+                                    rethos_send_ack_frame(&serial, serial.in_seqno);
+                                } else {
+                                    /* Retransmit the last frame that was sent. */
+                                    rethos_rexmit_data_frame(&serial);
+                                }
                                 continue;
                             } else if (serial.frametype == RETHOS_FRAME_TYPE_ACK) {
                                 if (serial.in_seqno == serial.rexmit_seqno) {
@@ -928,13 +939,13 @@ int main(int argc, char *argv[])
                             }
                         }
 
+                        /* ACK the frame we just received. */
+                        rethos_send_ack_frame(&serial, serial.in_seqno);
+
                         /* If it's a duplicate, just drop the frame. */
                         if (serial.in_seqno == serial.last_rcvd_seqno) {
                             continue;
                         }
-
-                        /* ACK the frame we just received. */
-                        rethos_send_ack_frame(&serial, serial.in_seqno);
 
                         /* Record the number of lost frames. */
                         stats.global.lost_frames += (serial.in_seqno - serial.last_rcvd_seqno - 1);
