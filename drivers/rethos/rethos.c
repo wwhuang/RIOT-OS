@@ -34,6 +34,8 @@
 #include "net/eui64.h"
 #include "net/ethernet.h"
 
+#include <xtimer.h>
+
 #ifdef USE_ETHOS_FOR_STDIO
 #include "uart_stdio.h"
 #endif
@@ -48,6 +50,8 @@ static const netdev2_driver_t netdev2_driver_ethos;
 static const uint8_t _esc_esc[] = {RETHOS_ESC_CHAR, RETHOS_LITERAL_ESC};
 static const uint8_t _start_frame[] = {RETHOS_ESC_CHAR, RETHOS_FRAME_START};
 static const uint8_t _end_frame[] = {RETHOS_ESC_CHAR, RETHOS_FRAME_END};
+
+xtimer_t rexmit_timer;
 
 static void fletcher16_add(const uint8_t *data, size_t bytes, uint16_t *sum1i, uint16_t *sum2i)
 {
@@ -68,9 +72,9 @@ static void fletcher16_add(const uint8_t *data, size_t bytes, uint16_t *sum1i, u
 
 static uint16_t fletcher16_fin(uint16_t sum1, uint16_t sum2)
 {
-  sum1 = (sum1 & 0xff) + (sum1 >> 8);
-  sum2 = (sum2 & 0xff) + (sum2 >> 8);
-  return (sum2 << 8) | sum1;
+    sum1 = (sum1 & 0xff) + (sum1 >> 8);
+    sum2 = (sum2 & 0xff) + (sum2 >> 8);
+    return (sum2 << 8) | sum1;
 }
 
 void ethos_setup(ethos_t *dev, const ethos_params_t *params)
@@ -100,6 +104,8 @@ void ethos_setup(ethos_t *dev, const ethos_params_t *params)
     dev->mac_addr[0] &= (0x2);      /* unset globally unique bit */
     dev->mac_addr[0] &= ~(0x1);     /* set unicast bit*/
 
+    rexmit_timer.callback = rethos_rexmit_callback;
+
     uart_init(params->uart, params->baudrate, ethos_isr, (void*)dev);
 
     //TODO send mac address
@@ -111,19 +117,52 @@ void ethos_setup(ethos_t *dev, const ethos_params_t *params)
 
 static void sm_invalidate(ethos_t *dev)
 {
-  dev->state = SM_WAIT_FRAMESTART;
-  dev->rx_buffer_index = 0;
+    dev->state = SM_WAIT_FRAMESTART;
+    dev->rx_buffer_index = 0;
 }
 static void process_frame(ethos_t *dev)
 {
+    /* Sam: Michael, I have no idea what you're doing here.
     if (dev->rx_frame_type == RETHOS_FRAME_TYPE_SETMAC)
     {
       memcpy(&dev->remote_mac_addr, dev->rx_buffer, 6);
       rethos_send_frame(dev, dev->mac_addr, 6, RETHOS_CHANNEL_CONTROL, RETHOS_FRAME_TYPE_SETMAC);
     }
+    */
     if (dev->rx_frame_type != RETHOS_FRAME_TYPE_DATA)
     {
-      return; //Other types are internal to rethos
+        /* All ACKs and NACKs happen on the RETHOS-reserved channel. */
+        if (serial.channel == RETHOS_CHANNEL_CONTROL)
+        {
+            if (dev->rx_frame_type == RETHOS_FRAME_TYPE_ACK)
+            {
+                if (dev->rx_seqno == dev->rexmit_seqno)
+                {
+                    dev->rexmit_acked = true;
+                    xtimer_remove(&rexmit_timer);
+                }
+            }
+            else if (dev->rx_frame_type == RETHOS_FRAME_TYPE_NACK)
+            {
+                if (dev->rexmit_acked)
+                {
+                    /* They've already ACKed the last thing we sent, so either one of NACKs got
+                     * corrupted or one of our ACKs got corrupted.
+                     *
+                     * Sending a NACK here could cause a NACK storm, so instead just ACK the last
+                     * thing we received.
+                     */
+                    rethos_send_ack_frame(dev, dev->rx_seqno);
+                }
+                else
+                {
+                    /* Retransmit the last data frame we sent. */
+                    rethos_rexmit_data_frame(dev);
+                }
+            }
+        }
+
+        return; //Other types are internal to rethos
     }
     //Handle the special channels
     switch(dev->rx_channel) {
@@ -193,6 +232,7 @@ static void sm_char(ethos_t *dev, uint8_t c)
       {
         dev->stats_rx_cksum_fail++;
         //SAM: do nack or something
+        rethos_send_nack_frame(dev);
       } else {
         dev->stats_rx_frames++;
         dev->stats_rx_bytes += dev->rx_buffer_index;
@@ -295,18 +335,54 @@ static void _write_escaped(uart_t uart, uint8_t c)
     uart_write(uart, out, n);
 }
 
+void rethos_rexmit_callback(void* arg)
+{
+    ethos_t* dev = (ethos_t*) arg;
+    rethos_rexmit_data_frame(dev);
+
+    xtimer_set(&rexmit_timer, (uint32_t) RETHOS_REXMIT_MICROS);
+}
+
 void ethos_send_frame(ethos_t *dev, const uint8_t *data, size_t len, unsigned channel)
 {
-  rethos_send_frame(dev, data, len, channel, RETHOS_FRAME_TYPE_DATA);
+    uint16_t seqno = ++(dev->txseq);
+
+    /* Store this data, in case we need to retransmit it. */
+    dev->rexmit_seqno = seqno;
+    dev->rexmit_channel = (uint8_t) channel;
+    dev->rexmit_numbytes = len;
+    memcpy(dev->rexmit_frame, data, len);
+    dev->rexmit_acked = false;
+
+    rethos_send_frame(dev, data, len, channel, seqno, RETHOS_FRAME_TYPE_DATA);
+
+    /* Set the rexmit timer */
+    rexmit_timer.arg = dev;
+    xtimer_set(&rexmit_timer, (uint32_t) RETHOS_REXMIT_MICROS);
 }
 
-void rethos_send_frame(ethos_t *dev, const uint8_t *data, size_t len, uint8_t channel, uint8_t frame_type)
+void rethos_send_frame(ethos_t *dev, const uint8_t *data, size_t len, uint8_t channel, uint16_t seqno, uint8_t frame_type)
 {
-  rethos_start_frame(dev, data, len, channel, frame_type);
-  rethos_end_frame(dev);
+    rethos_start_frame(dev, data, len, channel, seqno, frame_type);
+    rethos_end_frame(dev);
 }
 
-void rethos_start_frame(ethos_t *dev, const uint8_t *data, size_t thislen, uint8_t channel, uint8_t frame_type)
+void rethos_rexmit_data_frame(ethos_t* dev)
+{
+    rethos_send_frame(dev, dev->rexmit_frame, dev->rexmit_numbytes, dev->rexmit_channel, dev->rexmit_seqno, RETHOS_FRAME_TYPE_DATA);
+}
+
+void rethos_send_ack_frame(ethos_t* dev, uint16_t seqno)
+{
+    rethos_send_frame(dev, NULL, 0, RETHOS_CHANNEL_CONTROL, seqno, RETHOS_FRAME_TYPE_ACK);
+}
+
+void rethos_send_nack_frame(ethos_t* dev)
+{
+    rethos_send_frame(dev, NULL, 0, RETHOS_CHANNEL_CONTROL, 0, RETHOS_FRAME_TYPE_NACK);
+}
+
+void rethos_start_frame(ethos_t *dev, const uint8_t *data, size_t thislen, uint8_t channel, uint16_t seqno, uint8_t frame_type)
 {
   uint8_t preamble_buffer[6];
   if (!irq_is_in()) {
@@ -317,8 +393,6 @@ void rethos_start_frame(ethos_t *dev, const uint8_t *data, size_t thislen, uint8
 
   dev->flsum1 = 0xFF;
   dev->flsum2 = 0xFF;
-
-  uint16_t seqno = ++(dev->txseq);
 
   preamble_buffer[0] = RETHOS_ESC_CHAR;
   preamble_buffer[1] = RETHOS_FRAME_START;

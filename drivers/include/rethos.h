@@ -78,11 +78,20 @@ so that implies that even the preamble needs to be escaped when written
 #define RETHOS_FRAME_TYPE_HB             (0x2)
 #define RETHOS_FRAME_TYPE_HB_REPLY       (0x3)
 
+/* Sam: I am going to remove this because I don't use it at all.
 #define RETHOS_FRAME_TYPE_SETMAC         (0x4)
+*/
+
+#define RETHOS_FRAME_TYPE_ACK            (0x4)
+#define RETHOS_FRAME_TYPE_NACK           (0x4)
 
 #define RETHOS_CHANNEL_CONTROL            0x00
 #define RETHOS_CHANNEL_NETDEV             0x01
 #define RETHOS_CHANNEL_STDIO              0x02
+
+
+/* Retransmit interval in microseconds. */
+#define RETHOS_REXMIT_MICROS 100000L
 
 /** @} */
 
@@ -150,6 +159,13 @@ typedef struct {
   //  uint16_t txlen;
     uint16_t flsum1;
     uint16_t flsum2;
+
+    /* State for retransmissions. */
+    uint16_t rexmit_seqno;
+    uint8_t rexmit_channel;
+    size_t rexmit_numbytes;
+    uint8_t rexmit_frame[RETHOS_TX_BUF_SZ];
+    bool rexmit_acked;
 } ethos_t;
 
 struct _rethos_handler {
@@ -183,6 +199,8 @@ typedef struct {
  */
 void ethos_setup(ethos_t *dev, const ethos_params_t *params);
 
+void rethos_rexmit_callback(void* arg);
+
 /**
  * @brief send frame over serial port using ethos' framing
  *
@@ -205,7 +223,15 @@ void ethos_send_frame(ethos_t *dev, const uint8_t *data, size_t len, unsigned ch
  * @param[in]   len         nr of bytes to send
  * @param[in]   frame_type  frame channel to use
  */
-void rethos_send_frame(ethos_t *dev, const uint8_t *data, size_t len, uint8_t channel, uint8_t frame_type);
+void rethos_send_frame(ethos_t *dev, const uint8_t *data, size_t len, uint8_t channel, uint16_t seqno, uint8_t frame_type);
+
+void rethos_send_frame(ethos_t *dev, const uint8_t *data, size_t len, uint8_t channel, uint16_t seqno, uint8_t frame_type);
+
+void rethos_rexmit_data_frame(ethos_t* dev);
+
+void rethos_send_ack_frame(ethos_t* dev, uint16_t seqno);
+
+void rethos_send_nack_frame(ethos_t* dev);
 
 /**
  * @brief send frame over serial port using ethos' framing
@@ -217,7 +243,7 @@ void rethos_send_frame(ethos_t *dev, const uint8_t *data, size_t len, uint8_t ch
  * @param[in]   thislen     nr of bytes to send on this invocation
  * @param[in]   frame_type  frame type to use
  */
-void rethos_start_frame(ethos_t *dev, const uint8_t *data, size_t thislen, uint8_t channel, uint8_t frame_type);
+void rethos_start_frame(ethos_t *dev, const uint8_t *data, size_t thislen, uint8_t channel, uint16_t seqno, uint8_t frame_type);
 
 /**
  * @brief send frame over serial port using ethos' framing
