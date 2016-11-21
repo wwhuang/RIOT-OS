@@ -14,9 +14,6 @@
  * @file
  * @brief       Configuration of CPU peripherals for the Hamilton mote
  *
- * @author      Thomas Eichinger <thomas.eichinger@fu-berlin.de>
- * @author      Hauke Petersen <hauke.petersen@fu-berlin.de>
- * @author      Peter Kietzmann <peter.kietzmann@haw-hamburg.de>
  * @author      Michael Andersen <m.andersen@berkeley.edu>
  * @author      Hyun Sin Kim <hs.kim@berkeley.edu>
  */
@@ -110,6 +107,18 @@ static const uart_conf_t uart_config[] = {
 };
 
 #define UART_NUMOF          (0U)
+/** @} */
+
+/**
+ * @name ADC configuration
+ * @{
+ */
+#define ADC_NUMOF          (1U)
+#define ADC_0_EN            1
+#define ADC_0_DEV           ADC
+#define ADC_0_IRQ           ADC_IRQn
+//#define ADC_0_PORT          PORT->Group[0]
+//#define ADC_0_INPUT         GPIO_PIN(0,28)
 /** @} */
 
 /**
