@@ -34,7 +34,7 @@
 
 int adc_init(adc_t channel) {
 
-  	while(ADC_DEV->STATUS.reg & ADC_STATUS_SYNCBUSY);
+
 
     /*  Disable ADC Module before init. */
     ADC_DEV->CTRLA.bit.ENABLE = 0;
@@ -47,19 +47,23 @@ int adc_init(adc_t channel) {
                                    GCLK_CLKCTRL_GEN_GCLK0 |
                                    (ADC_GCLK_ID << GCLK_CLKCTRL_ID_Pos));
 
+
+   ADC_DEV->CTRLA.bit.SWRST = 1;
+   while(ADC_DEV->STATUS.reg & ADC_STATUS_SYNCBUSY);
+
     /* Set RUN_IN_STANDBY */
-    ADC_DEV->CTRLA.bit.RUNSTDBY = 0;
+    ADC_DEV->CTRLA.bit.RUNSTDBY = 1;
 
     /* Set Voltage Reference */
     ADC_DEV->REFCTRL.bit.REFSEL  = ADC_REFCTRL_REFSEL_INT1V_Val;
     ADC_DEV->REFCTRL.bit.REFCOMP = 1;
 
     /* Set the accumulation and divide result */
-    ADC_DEV->AVGCTRL.bit.SAMPLENUM = 0;
-	  ADC_DEV->AVGCTRL.bit.ADJRES    = 0;//ADC_AVGCTRL_ADJRES(divideResult) | accumulate;
+    ADC_DEV->AVGCTRL.bit.SAMPLENUM = 6;
+	  ADC_DEV->AVGCTRL.bit.ADJRES    = 4;//ADC_AVGCTRL_ADJRES(divideResult) | accumulate;
 
     /* Set Sample length */
-    ADC_DEV->SAMPCTRL.bit.SAMPLEN = 0;//ADC_SAMPCTRL_SAMPLEN(ADC_0_SAMPLE_LENGTH);
+    ADC_DEV->SAMPCTRL.bit.SAMPLEN = 32;//ADC_SAMPCTRL_SAMPLEN(ADC_0_SAMPLE_LENGTH);
 	  while(ADC_DEV->STATUS.reg & ADC_STATUS_SYNCBUSY);
 
     /* Configure CTRLB Register HERE IS THE RESOLUTION SET!*/
@@ -68,7 +72,7 @@ int adc_init(adc_t channel) {
     ADC_DEV->CTRLB.bit.CORREN    = 0;
     ADC_DEV->CTRLB.bit.LEFTADJ   = 1; // Left-adjusted results
     ADC_DEV->CTRLB.bit.RESSEL    = ADC_CTRLB_RESSEL_12BIT_Val;
-    ADC_DEV->CTRLB.bit.PRESCALER = ADC_CTRLB_PRESCALER_DIV4_Val;
+    ADC_DEV->CTRLB.bit.PRESCALER = ADC_CTRLB_PRESCALER_DIV512_Val;
     while(ADC_DEV->STATUS.reg & ADC_STATUS_SYNCBUSY);
 
     ADC_DEV->INPUTCTRL.bit.GAIN        = ADC_INPUTCTRL_GAIN_1X_Val;
