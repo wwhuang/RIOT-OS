@@ -75,7 +75,7 @@ int adc_init(adc_t channel) {
     ADC_DEV->INPUTCTRL.bit.INPUTOFFSET = 0;
 
     /* Port configuration */
-    PM->APBCMASK.reg |= PM_APBBMASK_PORT;
+    PM->APBBMASK.reg |= PM_APBBMASK_PORT;
 
     int pin = ADC_GET_PIN(channel);
     PortGroup* pg = ADC_GET_PORT_GROUP(channel);
@@ -105,7 +105,7 @@ int adc_init(adc_t channel) {
 	  /* ADC runs during debug mode */
     ADC_DEV->DBGCTRL.bit.DBGRUN = 1;
 
-    ADC_DEV->CTRLA.bit.SWRST = 1;
+    //ADC_DEV->CTRLA.bit.SWRST = 1;
     while(ADC_DEV->STATUS.reg & ADC_STATUS_SYNCBUSY);
 
     return 0;
@@ -147,8 +147,8 @@ int adc_sample(adc_t channel, adc_res_t res){
 	while (ADC_DEV->STATUS.reg & ADC_STATUS_SYNCBUSY);
 
 	/* Enable ADC Module. */
-	ADC_DEV->CTRLA.bit.SWRST = 1;
-	while(ADC_DEV->STATUS.reg & ADC_STATUS_SYNCBUSY);
+//	ADC_DEV->CTRLA.bit.SWRST = 1;
+//	while(ADC_DEV->STATUS.reg & ADC_STATUS_SYNCBUSY);
   ADC_DEV->CTRLA.bit.ENABLE = 1;
 	while(ADC_DEV->STATUS.reg & ADC_STATUS_SYNCBUSY);
 
@@ -162,7 +162,7 @@ int adc_sample(adc_t channel, adc_res_t res){
 	output = (int)ADC_DEV->RESULT.reg;
 	while(ADC_DEV->STATUS.reg & ADC_STATUS_SYNCBUSY);
 
-  ADC_DEV->CTRLA.bit.ENABLE = 0;
+  //ADC_DEV->CTRLA.bit.ENABLE = 0;
 	while(ADC_DEV->STATUS.reg & ADC_STATUS_SYNCBUSY);
 
 	/*  Disable bandgap */
