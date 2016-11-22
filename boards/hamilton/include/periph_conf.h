@@ -113,12 +113,13 @@ static const uart_conf_t uart_config[] = {
  * @name ADC configuration
  * @{
  */
-#define ADC_NUMOF          (1U)
+#define ADC_NUMOF           (1U)
+#define ADC_DEV             ADC
+//#define ADC_IRQ           ADC_IRQn
 #define ADC_0_EN            1
-#define ADC_0_DEV           ADC
-#define ADC_0_IRQ           ADC_IRQn
-//#define ADC_0_PORT          PORT->Group[0]
-//#define ADC_0_INPUT         GPIO_PIN(0,28)
+#define ADC_0_PORT          PORT->Group[0]
+#define ADC_0_PIN           (8)                            // PA08 (light sensor)
+#define ADC_0_INPUT_CHANNEL ADC_INPUTCTRL_MUXPOS_PIN16_Val // PA08 = ADC16
 /** @} */
 
 /**
