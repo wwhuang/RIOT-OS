@@ -119,7 +119,7 @@ static const uart_conf_t uart_config[] = {
 
 #define ADC_PIN(portg, pin, chan) (((portg)<<16) | ((pin) << 8) | (chan))
 #define ADC_GET_PIN(channel) (((channel) >> 8) & 0xff)
-#define ADC_GET_PORT_GROUP(channel) (&(PORT->Group[(channel)]))
+#define ADC_GET_PORT_GROUP(channel) (&(PORT->Group[((channel)>>16) & 0xFF]))
 #define ADC_GET_CHANNEL(channel) ((channel) & 0xff)
 
 #define ADC_PIN_PA06        ADC_PIN(0, 6, 6)

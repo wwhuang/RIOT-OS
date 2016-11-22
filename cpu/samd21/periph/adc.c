@@ -80,6 +80,10 @@ int adc_init(adc_t channel) {
     int pin = ADC_GET_PIN(channel);
     PortGroup* pg = ADC_GET_PORT_GROUP(channel);
 
+    volatile void* t1 = (void*)pg;
+    volatile int vpin = pin;
+    printf("t1 is %x\n", (unsigned int) t1);
+    printf("pin is %d\n", vpin);
     pg->DIRCLR.reg = (1 << pin);
     pg->PINCFG[pin].bit.INEN = 1;
     pg->PINCFG[pin].bit.PMUXEN = 1;
@@ -162,7 +166,7 @@ int adc_sample(adc_t channel, adc_res_t res){
 	while(ADC_DEV->STATUS.reg & ADC_STATUS_SYNCBUSY);
 
 	/*  Disable bandgap */
-	SYSCTRL->VREF.reg &= ~SYSCTRL_VREF_BGOUTEN;
+	//SYSCTRL->VREF.reg &= ~SYSCTRL_VREF_BGOUTEN;
 
 	/* Return result. */
 	return output;
