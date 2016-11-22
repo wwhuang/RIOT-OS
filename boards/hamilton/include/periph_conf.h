@@ -114,11 +114,11 @@ static const uart_conf_t uart_config[] = {
  * @{
  */
 #define ADC_NUMOF          (1U)
-#define ADC_0_EN            1
-#define ADC_0_DEV           ADC
-#define ADC_0_IRQ           ADC_IRQn
-//#define ADC_0_PORT          PORT->Group[0]
-//#define ADC_0_INPUT         GPIO_PIN(0,28)
+#define ADC_DEV             ADC
+
+#define ADC_PIN_PA06        ADC_PIN(0, 6, 6)
+#define ADC_PIN_PA07        ADC_PIN(0, 7, 7)
+#define ADC_PIN_PA08        ADC_PIN(0, 8, 16)
 /** @} */
 
 /**
