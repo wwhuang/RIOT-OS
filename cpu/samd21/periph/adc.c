@@ -79,13 +79,12 @@ int adc_init(adc_t channel) {
 
     int pin = ADC_GET_PIN(channel);
     PortGroup* pg = ADC_GET_PORT_GROUP(channel);
-    int chan = ADC_GET_CHANNEL(channel);
-    
+
     pg->DIRCLR.reg = (1 << pin);
     pg->PINCFG[pin].bit.INEN = 1;
     pg->PINCFG[pin].bit.PMUXEN = 1;
-    pg->PMUX[ADC_0_PIN >> 1].reg &= ~(0xf << (4 * (pin & 0x1)));
-  	pg->PMUX[ADC_0_PIN >> 1].reg |= (PORT_PMUX_PMUXE_B_Val << (4 * (pin & 0x1)));
+    pg->PMUX[pin >> 1].reg &= ~(0xf << (4 * (pin & 0x1)));
+  	pg->PMUX[pin >> 1].reg |= (PORT_PMUX_PMUXE_B_Val << (4 * (pin & 0x1)));
 
 	  ADC_DEV->INPUTCTRL.bit.MUXNEG      = ADC_INPUTCTRL_MUXNEG_IOGND_Val;
 	  while(ADC_DEV->STATUS.reg & ADC_STATUS_SYNCBUSY);
@@ -113,21 +112,15 @@ int adc_init(adc_t channel) {
 int adc_sample(adc_t channel, adc_res_t res){
 	int output;
 
-	// Set input channel for ADC
-	switch(channel) {
-#if ADC_0_EN
-		case ADC_0_INPUT_CHANNEL:
-			ADC_DEV->INPUTCTRL.bit.MUXPOS = channel;
-			break;
-#endif
-		default:
-			return -1;
-	}
+	/* Set input channel for ADC */
+  int chan = ADC_GET_CHANNEL(channel);
+  ADC_DEV->INPUTCTRL.bit.MUXPOS = chan;
 
-	//  Enable bandgap
+
+	/*  Enable bandgap */
 	SYSCTRL->VREF.reg |= SYSCTRL_VREF_BGOUTEN;
 
-	// Set resolution
+	/* Set resolution */
 	switch (res) {
 		case ADC_RES_8BIT:
 			ADC_DEV->CTRLB.bit.RESSEL = ADC_CTRLB_RESSEL_8BIT_Val;
@@ -146,32 +139,32 @@ int adc_sample(adc_t channel, adc_res_t res){
 			break;
 	}
 
-	// Wait for sync.
+	/* Wait for sync. */
 	while (ADC_DEV->STATUS.reg & ADC_STATUS_SYNCBUSY);
 
-	//  Enable ADC Module.
+	/* Enable ADC Module. */
 	ADC_DEV->CTRLA.bit.SWRST = 1;
 	while(ADC_DEV->STATUS.reg & ADC_STATUS_SYNCBUSY);
-    ADC_DEV->CTRLA.bit.ENABLE = 1;
+  ADC_DEV->CTRLA.bit.ENABLE = 1;
 	while(ADC_DEV->STATUS.reg & ADC_STATUS_SYNCBUSY);
 
-	// Start the conversion.
+	/* Start the conversion. */
 	ADC_DEV->SWTRIG.reg = ADC_SWTRIG_START;
 
-	// Wait for the result.
+	/* Wait for the result. */
 	while (!(ADC_DEV->INTFLAG.reg & ADC_INTFLAG_RESRDY));
 
-	// Read result
+	/* Read result */
 	output = (int)ADC_DEV->RESULT.reg;
 	while(ADC_DEV->STATUS.reg & ADC_STATUS_SYNCBUSY);
 
-    ADC_DEV->CTRLA.bit.ENABLE = 0;
+  ADC_DEV->CTRLA.bit.ENABLE = 0;
 	while(ADC_DEV->STATUS.reg & ADC_STATUS_SYNCBUSY);
 
-	//  Disable bandgap
+	/*  Disable bandgap */
 	SYSCTRL->VREF.reg &= ~SYSCTRL_VREF_BGOUTEN;
 
-	// Return result.
+	/* Return result. */
 	return output;
 }
 
