@@ -175,6 +175,53 @@ typedef struct {
     int16_t mag_z;
 } fxos8700_measurement_t;
 
+
+typedef union {
+  struct {
+    uint8_t  zyxow:1;        /*!< bit:      0  Start Conversion Event In          */
+    uint8_t  zow:1;         /*!< bit:      1  Synchronization Event In           */
+    uint8_t  yow:1;               /*!< bit:  2.. 3  Reserved                           */
+    uint8_t  xow:1;        /*!< bit:      0  Start Conversion Event In          */
+    uint8_t  zyxdr:1;         /*!< bit:      1  Synchronization Event In           */
+    uint8_t  zdr:1;               /*!< bit:  2.. 3  Reserved                           */
+    uint8_t  ydr:1;        /*!< bit:      0  Start Conversion Event In          */
+    uint8_t  xdr:1;         /*!< bit:      1  Synchronization Event In           */
+  } bit;                       /*!< Structure used for bit  access                  */
+  uint8_t reg;                 /*!< Type      used for register access              */
+} FXOS8700_STATUS_Type;
+
+typedef union {
+  struct {
+    uint8_t  aslp_rate:2;     /*!< bit:      auto-wake sample frequency (for auto-sleep mode) */
+    uint8_t  dr:3;            /*!< bit:      Output data rate (ODR) selection      */
+    uint8_t  lnoise:1;        /*!< bit:      normal (0) / reduced noise (1)        */
+    uint8_t  f_read:1;        /*!< bit:      normal (0) / fast read with 8 bit output (1)     */
+    uint8_t  active:1;        /*!< bit:      standby (0) / active (1)              */
+  } bit;                      /*!< Structure used for bit  access                  */
+  uint8_t reg;                /*!< Type      used for register access              */
+} FXOS8700_CTRL_REG1_Type;
+
+typedef union {
+  struct {
+    uint8_t  st:1;            /*!< bit:      self-test  */
+    uint8_t  rst:1;           /*!< bit:      software reset      */
+    uint8_t  :1;              /*!< bit:      normal (0) / reduced noise (1)        */
+    uint8_t  smods:2;         /*!< bit:      normal (0) / fast read with 8 bit output (1)     */
+    uint8_t  slpe:1;          /*!< bit:      standby (0) / active (1)              */
+    uint8_t  modes:2;         /*!< bit:      standby (0) / active (1)              */
+  } bit;                      /*!< Structure used for bit  access                  */
+  uint8_t reg;                /*!< Type      used for register access              */
+} FXOS8700_CTRL_REG2_Type;
+
+typedef union {
+  struct {
+    uint8_t  fgerr:1;        /*!< bit:      0  Start Conversion Event In          */
+    uint8_t  figt:5;         /*!< bit:      1  Synchronization Event In           */
+    uint8_t  sysmod:2;               /*!< bit:  2.. 3  Reserved                           */
+  } bit;                       /*!< Structure used for bit  access                  */
+  uint8_t reg;                 /*!< Type      used for register access              */
+} FXOS8700_SYSMOD_Type;
+
 /** @} */
 
 /**
