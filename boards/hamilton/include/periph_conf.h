@@ -231,6 +231,16 @@ static const pwm_conf_t pwm_config[] = {
 #define RTT_RUNSTDBY        (1)         /* Keep RTT running in sleep states */
 /** @} */
 
+/**
+ * @name Network configuration
+ * @{
+ */
+#define DUTYCYCLE_EN               (1)
+#define DUTYCYCLE_SLEEP_INTERVAL   2000000UL
+#define DUTYCYCLE_WAKEUP_INTERVAL    10000UL
+/** @} */
+
+
 #ifdef __cplusplus
 }
 #endif

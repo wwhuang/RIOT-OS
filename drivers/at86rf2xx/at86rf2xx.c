@@ -192,7 +192,11 @@ void at86rf2xx_tx_prepare(at86rf2xx_t *dev)
     } while (state == AT86RF2XX_STATE_BUSY_RX_AACK ||
              state == AT86RF2XX_STATE_BUSY_TX_ARET);
     if (state != AT86RF2XX_STATE_TX_ARET_ON) {
+#if DUTYCYCLE_EN
+		dev->idle_state = AT86RF2XX_STATE_RX_AACK_ON;
+#else
         dev->idle_state = state;
+#endif
     }
     at86rf2xx_set_state(dev, AT86RF2XX_STATE_TX_ARET_ON);
     dev->tx_frame_len = IEEE802154_FCS_LEN;
