@@ -238,6 +238,8 @@ static const pwm_conf_t pwm_config[] = {
 #define DUTYCYCLE_EN               (1)
 #define DUTYCYCLE_SLEEP_INTERVAL   2000000UL
 #define DUTYCYCLE_WAKEUP_INTERVAL    10000UL
+#define ROUTER    (0) /* No duty-cycling */
+#define LEAF_NODE (1) /* Duty-cycling */
 /** @} */
 
 

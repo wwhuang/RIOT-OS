@@ -39,6 +39,7 @@
 #include "xtimer.h"
 
 #if DUTYCYCLE_EN
+#if EEEEEEEEEE
 
 #define ENABLE_DEBUG    (0)
 #include "debug.h"
@@ -49,6 +50,13 @@
 
 #define NETDEV2_NETAPI_MSG_QUEUE_SIZE 8
 #define NETDEV2_PKT_QUEUE_SIZE 4
+
+#if LEAF_NODE
+#else
+#define NEIGHBOR_TABLE_SIZE 10
+link_neighbor_table_t neighbor_table[NEIGHBOR_TABLE_SIZE];
+uint8_t neighbor_num = 0;
+#endif
 
 static void _pass_on_packet(gnrc_pktsnip_t *pkt);
 
@@ -67,7 +75,8 @@ dutycycle_state_t dutycycle_state = DUTY_INIT;
 xtimer_t timer;
 uint8_t broadcasting = 0;
 uint8_t pending_num = 0;
-
+uint8_t broadcasting_num = 0;
+uint8_t sending_pkt_key = 0xFF;
 /** [This is for bursty transmission.]
  *  After a router sends a packet, if it has another packet to send to the same destination  
  *  (=recent_dst_l2addr), it does not have to wait for another sleep interval but sends immediately 
@@ -82,30 +91,76 @@ uint8_t radio_busy = 0;
 gnrc_pktsnip_t *current_pkt;
 
 
-
-
-
-int msg_queue_add(msg_t* msg_queue, msg_t* msg) {
-	if (pending_num < NETDEV2_PKT_QUEUE_SIZE) {
+// FIFO version
+//int msg_queue_add(msg_t* msg_queue, msg_t* msg) {
+//	if (pending_num < NETDEV2_PKT_QUEUE_SIZE) {
 		/* Add a packet to the last entry of the queue */
-		msg_queue[pending_num].sender_pid = msg->sender_pid;
-		msg_queue[pending_num].type = msg->type;
-		msg_queue[pending_num].content.ptr = msg->content.ptr;
-		printf("\nqueue add success [%u/%u/%4x]\n", pending_num, msg_queue[pending_num].sender_pid, 
-				msg_queue[pending_num].type);
+//		msg_queue[pending_num].sender_pid = msg->sender_pid;
+//		msg_queue[pending_num].type = msg->type;
+//		msg_queue[pending_num].content.ptr = msg->content.ptr;
+//		printf("\nqueue add success [%u/%u/%4x]\n", pending_num, msg_queue[pending_num].sender_pid, 
+//				msg_queue[pending_num].type);
 
 		/** When it is the first and broadcasting packet and the nodes is a router,
 		  * MAC maintains the packet for a sleep interval to send it to all neighbors 
 		  */ 
-		if (pending_num == 0 && dutycycling == NETOPT_DISABLE) {
-			gnrc_pktsnip_t *pkt = msg_queue[pending_num].content.ptr;
-			gnrc_netif_hdr_t* hdr = pkt->data;
-			if (hdr->flags & (GNRC_NETIF_HDR_FLAGS_BROADCAST | GNRC_NETIF_HDR_FLAGS_MULTICAST)) {
+//		if (pending_num == 0 && dutycycling == NETOPT_DISABLE) {
+//			gnrc_pktsnip_t *pkt = msg_queue[pending_num].content.ptr;
+//			gnrc_netif_hdr_t* hdr = pkt->data;
+//			if (hdr->flags & (GNRC_NETIF_HDR_FLAGS_BROADCAST | GNRC_NETIF_HDR_FLAGS_MULTICAST)) {
+//				xtimer_set(&timer, DUTYCYCLE_SLEEP_INTERVAL+100);
+//				broadcasting = 1;
+//				printf("broadcast starts\n");
+//			}
+//		}
+//		pending_num++; /* Number of packets in the queue */			
+//		return 1;
+//	} else {
+//		DEBUG("Queue loss at netdev2\n");
+//		return 0;
+//	}
+//}
+
+// Exhaustive search version
+int msg_queue_add(msg_t* msg_queue, msg_t* msg) {
+	if (pending_num < NETDEV2_PKT_QUEUE_SIZE) {
+		gnrc_pktsnip_t *pkt = msg->content.ptr;
+		gnrc_netif_hdr_t* hdr = pkt->data;
+		
+		// 1) Broadcasting packet (Insert head of the queue)
+		if (dutycycling == NETOPT_DISABLE && 
+			(hdr->flags & (GNRC_NETIF_HDR_FLAGS_BROADCAST | GNRC_NETIF_HDR_FLAGS_MULTICAST))) {
+			if (broadcasting_num < pending_num) {
+				for (int i=pending_num-1; i>= broadcasting_num; i--) {
+					msg_queue[i+1].sender_pid = msg_queue[i].sender_pid;
+					msg_queue[i+1].type = msg_queue[i].type;
+					msg_queue[i+1].content.ptr = msg_queue[i].content.ptr;
+				}
+			}
+			msg_queue[broadcasting_num].sender_pid = msg->sender_pid;
+			msg_queue[broadcasting_num].type = msg->type;
+			msg_queue[broadcasting_num].content.ptr = msg->content.ptr;				
+				
+			/** When it is the first and broadcasting packet and the nodes is a router,
+			  * MAC maintains the packet for a sleep interval to send it to all neighbors 
+			  */ 						
+			if (broadcasting_num == 0) {
 				xtimer_set(&timer, DUTYCYCLE_SLEEP_INTERVAL+100);
 				broadcasting = 1;
-				printf("broadcast starts\n");
-			}
-		}
+				sending_pkt_key = 0;
+				printf("broadcast starts\n");			
+			} 
+			broadcasting_num++;
+		} 
+		// 2) Unicasting packet
+		else {
+			/* Add a packet to the last entry of the queue */
+			msg_queue[pending_num].sender_pid = msg->sender_pid;
+			msg_queue[pending_num].type = msg->type;
+			msg_queue[pending_num].content.ptr = msg->content.ptr;
+			printf("\nqueue add success [%u/%u/%4x]\n", pending_num, msg_queue[pending_num].sender_pid, 
+					msg_queue[pending_num].type);
+		}			
 		pending_num++; /* Number of packets in the queue */			
 		return 1;
 	} else {
@@ -115,10 +170,13 @@ int msg_queue_add(msg_t* msg_queue, msg_t* msg) {
 }
 
 void msg_queue_remove_head(msg_t* msg_queue) {
-	printf("remove queue [%u/%4x]\n", msg_queue[0].sender_pid, msg_queue[0].type);
-
 	/* Remove queue head */	
-	gnrc_pktbuf_release(msg_queue[0].content.ptr);
+	if (sending_pkt_key == 0xFF) 
+		return;
+
+	printf("remove queue [%u, %u/%u]\n", sending_pkt_key, broadcasting_num, pending_num--);
+
+	gnrc_pktbuf_release(msg_queue[sending_pkt_key].content.ptr);
 	pending_num--;
 	if (pending_num < 0) {
 		DEBUG("NETDEV2: Pending number error\n");
@@ -126,7 +184,7 @@ void msg_queue_remove_head(msg_t* msg_queue) {
 				
     /* Update queue when more pending packets exist */
 	if (pending_num) {
-		for (int i=0; i<pending_num; i++) {
+		for (int i=sending_pkt_key; i<pending_num; i++) {
 			msg_queue[i].sender_pid = msg_queue[i+1].sender_pid;
 			msg_queue[i].type = msg_queue[i+1].type;
 			msg_queue[i].content.ptr = msg_queue[i+1].content.ptr;
@@ -138,35 +196,83 @@ void msg_queue_remove_head(msg_t* msg_queue) {
 		/** When the next packet is a broadcasting packet and the node is a router,
 		  * MAC maintains the packet for a sleep interval to send it to all neighbors 
 		  */ 
-		if (dutycycling == NETOPT_DISABLE) {
-			gnrc_pktsnip_t *pkt = msg_queue[0].content.ptr;
-			gnrc_netif_hdr_t* hdr = pkt->data;
-			if (msg_queue[0].sender_pid != 0 && msg_queue[0].type != 0 && 
-				(hdr->flags & (GNRC_NETIF_HDR_FLAGS_BROADCAST | GNRC_NETIF_HDR_FLAGS_MULTICAST))) {
-				xtimer_set(&timer, DUTYCYCLE_SLEEP_INTERVAL+100);
-				broadcasting = 1;
-				printf("broadcast starts\n");
-			}
+		if (dutycycling == NETOPT_DISABLE && broadcasting_num > 0) {
+			xtimer_set(&timer, DUTYCYCLE_SLEEP_INTERVAL+100);
+			broadcasting = 1;
+			sending_pkt_key = 0;
+			printf("broadcast starts\n");
+			return;
 		}
 	}
+	sending_pkt_key = 0xFF;
 	return;
 }
 
-void msg_queue_send(msg_t* msg_queue, uint16_t dst_l2addr, gnrc_netdev2_t* gnrc_dutymac_netdev2) {
-	gnrc_pktsnip_t *pkt = msg_queue[0].content.ptr;
-	gnrc_netif_hdr_t* hdr = pkt->data;
-	uint8_t* dst = gnrc_netif_hdr_get_dst_addr(hdr); 
-	uint16_t pkt_dst_l2addr;
-	if (hdr->dst_l2addr_len == IEEE802154_SHORT_ADDRESS_LEN) {
-		pkt_dst_l2addr = (*dst | (*(dst+1) << 8));
-	} else {
-		pkt_dst_l2addr = (*dst<<8 | (*(dst+1)));
-	}
+//void msg_queue_send(msg_t* msg_queue, uint16_t dst_l2addr, gnrc_netdev2_t* gnrc_dutymac_netdev2) {
+//	gnrc_pktsnip_t *pkt = msg_queue[0].content.ptr;
+//	gnrc_netif_hdr_t* hdr = pkt->data;
+//	uint8_t* dst  = gnrc_netif_hdr_get_dst_addr(hdr); 
+//	uint16_t pkt_dst_l2addr;
+//	if (hdr->dst_l2addr_len == IEEE802154_SHORT_ADDRESS_LEN) {
+//		pkt_dst_l2addr = (*dst | (*(dst+1) << 8));
+//	} else {
+//		pkt_dst_l2addr = (*dst<<8 | (*(dst+1)));
+//	}
 	//printf("sendid %u, type %4x, dst: %4x\n", msg_queue[0].sender_pid, msg_queue[0].type, pkt_dst_l2addr);
 
-	if (pkt_dst_l2addr == dst_l2addr || 
-		(hdr->flags & (GNRC_NETIF_HDR_FLAGS_BROADCAST | GNRC_NETIF_HDR_FLAGS_MULTICAST))) {
-		recent_dst_l2addr = pkt_dst_l2addr;
+//	if (pkt_dst_l2addr == dst_l2addr) {
+//		(hdr->flags & (GNRC_NETIF_HDR_FLAGS_BROADCAST | GNRC_NETIF_HDR_FLAGS_MULTICAST))) {
+//		recent_dst_l2addr = pkt_dst_l2addr;
+//		gnrc_pktsnip_t* temp_pkt = pkt;
+//		gnrc_pktsnip_t *p1, *p2;
+//		current_pkt = gnrc_pktbuf_add(NULL, temp_pkt->data, temp_pkt->size, temp_pkt->type);
+//		p1 = current_pkt;
+//		temp_pkt = temp_pkt->next;
+//		while(temp_pkt) {
+//			p2 = gnrc_pktbuf_add(NULL, temp_pkt->data, temp_pkt->size, temp_pkt->type);
+//			p1->next = p2;
+//			p1 = p1->next;
+//			temp_pkt = temp_pkt->next;
+//		}
+//		radio_busy = 1; /* radio is now busy */
+//		gnrc_dutymac_netdev2->send(gnrc_dutymac_netdev2, current_pkt);	
+//	}
+//}
+
+void msg_queue_send(msg_t* msg_queue, uint16_t dst_l2addr, gnrc_netdev2_t* gnrc_dutymac_netdev2) {
+	gnrc_pktsnip_t *pkt = NULL; 
+
+	if (broadcasting) { // broadcasting
+		pkt = msg_queue[0].content.ptr;
+		sending_pkt_key = 0;
+		recent_dst_l2addr = 0xFFFF;
+
+	} else {            // unicasting
+		gnrc_pktsnip_t *temp_pkt;
+		gnrc_netif_hdr_t *temp_hdr;
+		uint16_t pkt_dst_l2addr;
+		uint8_t* dst;
+		for (int i=0; i<pending_num; i++) {
+			temp_pkt = msg_queue[i].content.ptr;
+			temp_hdr = temp_pkt->data;
+			dst = gnrc_netif_hdr_get_dst_addr(temp_hdr); 
+			if (temp_hdr->dst_l2addr_len == IEEE802154_SHORT_ADDRESS_LEN) {
+				pkt_dst_l2addr = (*dst | (*(dst+1) << 8));
+			} else {
+				pkt_dst_l2addr = (*dst<<8 | (*(dst+1)));
+			}
+		
+			if (pkt_dst_l2addr == dst_l2addr) {	
+				pkt = msg_queue[i].content.ptr;
+				recent_dst_l2addr = pkt_dst_l2addr;
+				sending_pkt_key = i;
+				break;	
+			}
+		}
+	}
+
+	if (pkt != NULL && sending_pkt_key != 0xFF) {
+		//printf("sending %u to %4x (%u/%u)\n", sending_pkt_key, recent_dst_l2addr, broadcasting_num, pending_num);
 		gnrc_pktsnip_t* temp_pkt = pkt;
 		gnrc_pktsnip_t *p1, *p2;
 		current_pkt = gnrc_pktbuf_add(NULL, temp_pkt->data, temp_pkt->size, temp_pkt->type);
@@ -219,10 +325,31 @@ void dutycycle_cb(void* arg) {
 	} else {
 		/* Broadcasting msg maintenance for routers */
 		broadcasting = 0;
+		broadcasting_num--;
 		printf("braodcast ends\n");
 		msg.type = GNRC_NETDEV2_DUTYCYCLE_MSG_TYPE_REMOVE_QUEUE;
 	}
 	msg_send(&msg, gnrc_dutymac_netdev2->pid);
+}
+
+void neighbor_table_update(uint16_t l2addr, gnrc_netif_hdr_t *hdr) {
+	uint8_t key = 0xFF;	
+	for (int8_t i=0; i<NEIGHBOR_TABLE_SIZE; i++) {
+		if (neighbor_table[i].addr == l2addr) {
+			key = i;
+			break;
+		}
+	}
+	if (key == 0xFF) {
+		neighbor_table[neighbor_num].addr = l2addr;
+		neighbor_table[neighbor_num].rssi = hdr->rssi;
+		neighbor_table[neighbor_num].lqi  = hdr->lqi;
+		neighbor_table[neighbor_num].dutycycle = 1;
+		neighbor_num++;
+	} else {
+		neighbor_table[key].rssi = (8*neighbor_table[key].rssi + 2*hdr->rssi)/10;
+		neighbor_table[key].lqi = (8*neighbor_table[key].lqi + 2*hdr->lqi)/10;
+	}
 }
 
 /**
@@ -265,11 +392,11 @@ static void _event_cb(netdev2_t *dev, netdev2_event_t event)
 						msg.type = GNRC_NETDEV2_DUTYCYCLE_MSG_TYPE_SND;
 						msg.content.ptr = &src_l2addr;
 						msg_send(&msg, gnrc_dutymac_netdev2->pid);
+						neighbor_table_update(src_l2addr, hdr);
 					}
                     if (pkt) {
                         _pass_on_packet(pkt);
-                    }
-					
+                    }					
                     break;
                 }
             case NETDEV2_EVENT_TX_MEDIUM_BUSY:
@@ -369,6 +496,17 @@ static void *_gnrc_netdev2_duty_thread(void *args)
 		pkt_queue[i].sender_pid = 0;
 		pkt_queue[i].type = 0;
 	}
+
+#if LEAF_NODE
+#else
+	/* setup the link layer neighbor table */
+	for (int i=0; i<NEIGHBOR_TABLE_SIZE; i++) {
+		neighbor_table[i].addr = 0;
+		neighbor_table[i].rssi = 0;
+		neighbor_table[i].etx = 0;
+		neighbor_table[i].dutycycle = 0xffff;
+	}
+#endif
 
     /* register the event callback with the device driver */
     dev->event_callback = _event_cb;
@@ -530,4 +668,4 @@ kernel_pid_t gnrc_netdev2_dutymac_init(char *stack, int stacksize, char priority
     return res;
 }
 #endif
-
+#endif

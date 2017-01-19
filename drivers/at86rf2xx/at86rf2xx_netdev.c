@@ -171,6 +171,8 @@ static int _recv(netdev2_t *netdev, void *buf, size_t len, void *info)
         at86rf2xx_fb_stop(dev);
         radio_info->rssi = at86rf2xx_reg_read(dev, AT86RF2XX_REG__PHY_ED_LEVEL);
 #endif
+		/* The least 5 bits represent RSSI value */
+		radio_info->rssi = radio_info->rssi % 32;
     }
     else {
         at86rf2xx_fb_stop(dev);

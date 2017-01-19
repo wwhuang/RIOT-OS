@@ -31,7 +31,7 @@
 #include "at86rf2xx_internal.h"
 #include "at86rf2xx_netdev.h"
 
-#define ENABLE_DEBUG (0)
+#define ENABLE_DEBUG (1)
 #include "debug.h"
 
 
@@ -190,14 +190,18 @@ void at86rf2xx_tx_prepare(at86rf2xx_t *dev)
     do {
         state = at86rf2xx_get_status(dev);
     } while (state == AT86RF2XX_STATE_BUSY_RX_AACK ||
-             state == AT86RF2XX_STATE_BUSY_TX_ARET);
+             state == AT86RF2XX_STATE_BUSY_TX_ARET ||
+             state == AT86RF2XX_STATE_BUSY_RX ||
+             state == AT86RF2XX_STATE_BUSY_TX);
     if (state != AT86RF2XX_STATE_TX_ARET_ON) {
 #if DUTYCYCLE_EN
 		dev->idle_state = AT86RF2XX_STATE_RX_AACK_ON;
+		//dev->idle_state = AT86RF2XX_STATE_RX_ON;
 #else
         dev->idle_state = state;
 #endif
     }
+    //at86rf2xx_set_state(dev, AT86RF2XX_STATE_PLL_ON);
     at86rf2xx_set_state(dev, AT86RF2XX_STATE_TX_ARET_ON);
     dev->tx_frame_len = IEEE802154_FCS_LEN;
 }

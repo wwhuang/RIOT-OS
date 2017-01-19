@@ -202,6 +202,14 @@ typedef enum {
 	DUTY_LISTEN,
 } dutycycle_state_t;
 
+typedef struct {
+	uint16_t addr;
+	uint16_t dutycycle;
+	int8_t rssi;
+	uint8_t lqi;
+	uint8_t etx;
+} link_neighbor_table_t;
+
 /**
  * @brief Initialize GNRC netdev2 handler thread for dutycycling
  *

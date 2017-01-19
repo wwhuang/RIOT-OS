@@ -488,8 +488,8 @@ void at86rf2xx_set_state(at86rf2xx_t *dev, uint8_t state)
     } else {
         _set_state(dev, state);
     }
-	//printf("(%2x,%2x,%2x)\n", at86rf2xx_get_status(dev), at86rf2xx_reg_read(dev, AT86RF2XX_REG__TRX_STATUS)
-    //            & AT86RF2XX_TRX_STATUS_MASK__TRX_STATUS, state);
+	printf("(%2x,%2x,%2x)\n", at86rf2xx_get_status(dev), at86rf2xx_reg_read(dev, AT86RF2XX_REG__TRX_STATUS)
+                & AT86RF2XX_TRX_STATUS_MASK__TRX_STATUS, state);
 }
 
 void at86rf2xx_reset_state_machine(at86rf2xx_t *dev)

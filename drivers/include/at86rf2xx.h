@@ -94,6 +94,8 @@ extern "C" {
  * @{
  */
 #define AT86RF2XX_STATE_P_ON         (0x00)     /**< initial power on */
+#define AT86RF2XX_STATE_BUSY_RX      (0x01)     /**< busy receiving data */
+#define AT86RF2XX_STATE_BUSY_TX      (0x02)     /**< busy transmitting data */
 #define AT86RF2XX_STATE_RX_ON        (0x06)     /**< wait for incoming data */
 #define AT86RF2XX_STATE_TRX_OFF      (0x08)     /**< idle */
 #define AT86RF2XX_STATE_PLL_ON       (0x09)     /**< ready to transmit */
