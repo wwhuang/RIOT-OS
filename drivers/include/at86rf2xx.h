@@ -118,6 +118,7 @@ extern "C" {
 #define AT86RF2XX_OPT_SRC_ADDR_LONG  (NETDEV2_IEEE802154_SRC_MODE_LONG) /**< legacy define */
 #define AT86RF2XX_OPT_RAWDUMP        (NETDEV2_IEEE802154_RAW)           /**< legacy define */
 #define AT86RF2XX_OPT_AUTOACK        (NETDEV2_IEEE802154_ACK_REQ)       /**< legacy define */
+#define AT86RF2XX_OPT_ACK_PENDING    (NETDEV2_IEEE802154_FRAME_PEND)       /**< legacy define */
 
 #define AT86RF2XX_OPT_CSMA           (0x0100)       /**< CSMA active */
 #define AT86RF2XX_OPT_PROMISCUOUS    (0x0200)       /**< promiscuous mode
@@ -131,7 +132,8 @@ extern "C" {
                                                      *   start */
 #define AT86RF2XX_OPT_TELL_RX_END    (0x4000)       /**< notify MAC layer on RX
                                                      *   finished */
-#define AT86RF2XX_OPT_TELL_AMI    (0x8000)       /**< notify MAC layer on RX
+#define AT86RF2XX_OPT_TELL_AMI       (0x8000)       /**< notify MAC layer on Address matching */
+#define AT86RF2XX_OPT_TELL_CCA_DONE  (0x9000)       /**< notify MAC layer on CCA
                                                      *   finished */
 /** @} */
 

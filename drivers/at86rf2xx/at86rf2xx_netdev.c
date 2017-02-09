@@ -34,8 +34,9 @@
 #include "at86rf2xx_netdev.h"
 #include "at86rf2xx_internal.h"
 #include "at86rf2xx_registers.h"
+#include "xtimer.h"
 
-#define ENABLE_DEBUG (0)
+#define ENABLE_DEBUG (1)
 #include "debug.h"
 
 #define _MAX_MHR_OVERHEAD   (25)
@@ -210,6 +211,7 @@ netopt_state_t _get_state(at86rf2xx_t *dev)
         case AT86RF2XX_STATE_SLEEP:
             return NETOPT_STATE_SLEEP;
         case AT86RF2XX_STATE_BUSY_RX_AACK:
+		case AT86RF2XX_STATE_BUSY_RX:
             return NETOPT_STATE_RX;
         case AT86RF2XX_STATE_BUSY_TX_ARET:
         case AT86RF2XX_STATE_TX_ARET_ON:
@@ -399,6 +401,15 @@ static int _set(netdev2_t *netdev, netopt_t opt, void *val, size_t len)
     }
 
     switch (opt) {
+        case NETOPT_STATE:
+            if (len > sizeof(netopt_state_t)) {
+                res = -EOVERFLOW;
+            }
+            else {
+                res = _set_state(dev, *((netopt_state_t *)val));
+            }
+            break;
+
         case NETOPT_ADDRESS:
             if (len > sizeof(uint16_t)) {
                 res = -EOVERFLOW;
@@ -481,21 +492,16 @@ static int _set(netdev2_t *netdev, netopt_t opt, void *val, size_t len)
             }
             break;
 
-        case NETOPT_STATE:
-            if (len > sizeof(netopt_state_t)) {
-                res = -EOVERFLOW;
-            }
-            else {
-                res = _set_state(dev, *((netopt_state_t *)val));
-            }
-            break;
-
         case NETOPT_AUTOACK:
             at86rf2xx_set_option(dev, AT86RF2XX_OPT_AUTOACK,
                                  ((bool *)val)[0]);
             /* don't set res to set netdev2_ieee802154_t::flags */
             break;
 
+        case NETOPT_ACK_PENDING:
+            at86rf2xx_set_option(dev, AT86RF2XX_OPT_ACK_PENDING,
+                                 ((bool *)val)[0]);
+            break;
         case NETOPT_RETRANS:
             if (len > sizeof(uint8_t)) {
                 res = -EOVERFLOW;
@@ -626,6 +632,10 @@ static void _isr(netdev2_t *netdev)
         DEBUG("[at86rf2xx] EVT - AMI\n");
     }
 
+    if (irq_mask & AT86RF2XX_IRQ_STATUS_MASK__CCA_ED_DONE) {
+        netdev->event_callback(netdev, NETDEV2_EVENT_RX_STARTED);
+        DEBUG("[at86rf2xx] EVT - CCA DONE\n");
+    }
 
     if (irq_mask & AT86RF2XX_IRQ_STATUS_MASK__TRX_END) {
         if (state == AT86RF2XX_STATE_RX_AACK_ON ||
@@ -634,10 +644,14 @@ static void _isr(netdev2_t *netdev)
             if (!(dev->netdev.flags & AT86RF2XX_OPT_TELL_RX_END)) {
                 return;
             }
+			//while(at86rf2xx_get_status(dev) == AT86RF2XX_STATE_BUSY_RX_AACK);
+
             netdev->event_callback(netdev, NETDEV2_EVENT_RX_COMPLETE);
         }
         else if (state == AT86RF2XX_STATE_TX_ARET_ON ||
-                 state == AT86RF2XX_STATE_BUSY_TX_ARET) {
+                 state == AT86RF2XX_STATE_BUSY_TX_ARET ||
+				 state == AT86RF2XX_STATE_PLL_ON ||
+				 state == AT86RF2XX_STATE_BUSY_TX) {
             /* check for more pending TX calls and return to idle state if
              * there are none */
             assert(dev->pending_tx != 0);
@@ -651,9 +665,12 @@ static void _isr(netdev2_t *netdev)
             if (netdev->event_callback && (dev->netdev.flags & AT86RF2XX_OPT_TELL_TX_END)) {
                 switch (trac_status) {
                     case AT86RF2XX_TRX_STATE__TRAC_SUCCESS:
-                    case AT86RF2XX_TRX_STATE__TRAC_SUCCESS_DATA_PENDING:
                         netdev->event_callback(netdev, NETDEV2_EVENT_TX_COMPLETE);
                         DEBUG("[at86rf2xx] TX SUCCESS\n");
+                        break;
+                    case AT86RF2XX_TRX_STATE__TRAC_SUCCESS_DATA_PENDING:
+                        netdev->event_callback(netdev, NETDEV2_EVENT_TX_COMPLETE_PENDING);
+                        DEBUG("[at86rf2xx] TX SUCCESS PENDING\n");
                         break;
                     case AT86RF2XX_TRX_STATE__TRAC_NO_ACK:
                         netdev->event_callback(netdev, NETDEV2_EVENT_TX_NOACK);
@@ -664,6 +681,7 @@ static void _isr(netdev2_t *netdev)
                         DEBUG("[at86rf2xx] TX_CHANNEL_ACCESS_FAILURE\n");
                         break;
                     default:
+                        netdev->event_callback(netdev, NETDEV2_EVENT_TX_COMPLETE);
                         DEBUG("[at86rf2xx] Unhandled TRAC_STATUS: %d\n",
                               trac_status >> 5);
                 }

@@ -30,6 +30,7 @@
 #include "net/gnrc/netapi.h"
 #include "net/gnrc/netreg.h"
 #include "net/gnrc/netdev2.h"
+#include <periph/gpio.h>
 
 #ifdef MODULE_SCHEDSTATISTICS
 #include "sched.h"

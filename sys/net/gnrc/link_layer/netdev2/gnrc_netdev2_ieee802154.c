@@ -90,6 +90,10 @@ static gnrc_pktsnip_t *_recv(gnrc_netdev2_t *gnrc_netdev2)
         }
         nread = netdev->driver->recv(netdev, pkt->data, bytes_expected, &rx_info);
         if (nread <= 0) {
+#if LEAF_NODE
+			netopt_state_t sleepstate = NETOPT_STATE_SLEEP;
+			netdev->driver->set(netdev, NETOPT_STATE, &sleepstate, sizeof(netopt_state_t));
+#endif
             gnrc_pktbuf_release(pkt);
             return NULL;
         }
@@ -103,10 +107,15 @@ static gnrc_pktsnip_t *_recv(gnrc_netdev2_t *gnrc_netdev2)
 
             if (mhr_len == 0) {
                 DEBUG("_recv_ieee802154: illegally formatted frame received\n");
+#if LEAF_NODE
+				netopt_state_t sleepstate = NETOPT_STATE_SLEEP;
+				netdev->driver->set(netdev, NETOPT_STATE, &sleepstate, sizeof(netopt_state_t));
+#endif
                 gnrc_pktbuf_release(pkt);
                 return NULL;
             }
             nread -= mhr_len;
+
             /* mark IEEE 802.15.4 header */
             ieee802154_hdr = gnrc_pktbuf_mark(pkt, mhr_len, GNRC_NETTYPE_UNDEF);
             if (ieee802154_hdr == NULL) {
@@ -116,6 +125,13 @@ static gnrc_pktsnip_t *_recv(gnrc_netdev2_t *gnrc_netdev2)
             }
             netif_hdr = _make_netif_hdr(ieee802154_hdr->data);
 			printf(", len %u/%u\n", mhr_len,nread);
+#if LEAF_NODE
+			if (!(((uint8_t*)pkt->data)[0] & IEEE802154_FCF_FRAME_PEND)) {
+				printf("no pending\n");
+				netopt_state_t sleepstate = NETOPT_STATE_SLEEP;
+				netdev->driver->set(netdev, NETOPT_STATE, &sleepstate, sizeof(netopt_state_t));
+			}
+#endif
             if (netif_hdr == NULL) {
                 DEBUG("_recv_ieee802154: no space left in packet buffer\n");
                 gnrc_pktbuf_release(pkt);
@@ -192,6 +208,14 @@ static int _send(gnrc_netdev2_t *gnrc_netdev2, gnrc_pktsnip_t *pkt)
         src_len = IEEE802154_SHORT_ADDRESS_LEN;
         src = state->short_addr;
     }
+#if LEAF_NODE
+	int16_t ddd = 0xb434;
+	dst = (uint8_t*)&ddd;
+#endif
+#if ROUTER
+	int16_t ddd = 0x354e;
+	dst = (uint8_t*)&ddd;
+#endif
     /* fill MAC header, seq should be set by device */
     if ((res = ieee802154_set_frame_hdr(mhr, src, src_len,
                                         dst, dst_len, dev_pan,
@@ -200,8 +224,8 @@ static int _send(gnrc_netdev2_t *gnrc_netdev2, gnrc_pktsnip_t *pkt)
         return -EINVAL;
     }
 
-	
 	printf("[Tx Data] %u/%2x%2x->%u/%2x%2x, flag %2x, seq %u\n", src_len, src[0],src[1], dst_len, dst[0],dst[1], flags, state->seq-1);
+
     /* prepare packet for sending */
     vec_snip = gnrc_pktbuf_get_iovec(pkt, &n);
     if (vec_snip != NULL) {
@@ -230,7 +254,7 @@ static int _send(gnrc_netdev2_t *gnrc_netdev2, gnrc_pktsnip_t *pkt)
     return res;
 }
 
-/* hskim: send beacon for MAC operation */
+/* hskim: send Data Request MAC command for MAC operation */
 static int _send_beacon(gnrc_netdev2_t *gnrc_netdev2)
 {
     netdev2_t *netdev = gnrc_netdev2->dev;
@@ -239,24 +263,30 @@ static int _send_beacon(gnrc_netdev2_t *gnrc_netdev2)
     const uint8_t *src, *dst = NULL;
     int res = 0;
     size_t src_len, dst_len;
-    uint8_t mhr[IEEE802154_MAX_HDR_LEN];
-    uint8_t flags = 0; //(uint8_t)(state->flags & NETDEV2_IEEE802154_SEND_MASK);
+    uint8_t mhr[IEEE802154_MAX_HDR_LEN+1];
+	uint8_t command_id = 4; /* Data request commnad ID */
+    uint8_t flags = (uint8_t)(state->flags & NETDEV2_IEEE802154_SEND_MASK);
     le_uint16_t dev_pan = byteorder_btols(byteorder_htons(state->pan));
 	
-    flags |= IEEE802154_FCF_TYPE_BEACON;
-    //flags |= IEEE802154_FCF_TYPE_DATA;
+    flags |= (IEEE802154_FCF_ACK_REQ | IEEE802154_FCF_TYPE_MACCMD);
 
-    dst = ieee802154_addr_bcast;
-    dst_len = IEEE802154_ADDR_BCAST_LEN;
+	/* ToDo: Current version does not use a neighbor discovery protocol, which cannot support unicast.
+             We can manually set a destination (router's address) here */
+	int16_t ddd = 0xb434;
+	dst = (uint8_t*)&ddd;
+    dst_len = IEEE802154_SHORT_ADDRESS_LEN;
+    //dst = ieee802154_addr_bcast;
+    //dst_len = IEEE802154_ADDR_BCAST_LEN;
     
-/*    if (state->flags & NETDEV2_IEEE802154_SRC_MODE_LONG) {
+    if (state->flags & NETDEV2_IEEE802154_SRC_MODE_LONG) {
         src_len = IEEE802154_LONG_ADDRESS_LEN;
         src = state->long_addr;
     }
     else {
-  */      src_len = IEEE802154_SHORT_ADDRESS_LEN;
+        src_len = IEEE802154_SHORT_ADDRESS_LEN;
         src = state->short_addr;
-    //}
+    }
+
     /* fill MAC header, seq should be set by device */
     if ((res = ieee802154_set_frame_hdr(mhr, src, src_len,
                                         dst, dst_len, dev_pan,
@@ -264,7 +294,10 @@ static int _send_beacon(gnrc_netdev2_t *gnrc_netdev2)
         DEBUG("_send_ieee802154: Error preperaring frame\n");
         return -EINVAL;
     }
-	printf("[Tx Beacon] %u/%2x%2x->%u/%2x%2x, flag %2x, seq %u\n", src_len, src[0],src[1], dst_len, dst[0],dst[1], flags, state->seq-1);
+	mhr[res++] = command_id; /* MAC command ID: Data Request */
+
+	printf("[Tx DataReq] %u/%2x%2x->%u/%2x%2x, flag %2x, seq %u\n", src_len, src[0],src[1], dst_len, dst[0],dst[1], flags, state->seq-1);
+	
     /* prepare packet for sending */
     vector.iov_base = mhr;
     vector.iov_len = (size_t)res;

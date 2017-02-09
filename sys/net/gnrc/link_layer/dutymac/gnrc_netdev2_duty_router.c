@@ -387,9 +387,12 @@ static void *_gnrc_netdev2_duty_thread(void *args)
     /* register the device to the network stack*/
     gnrc_netif_add(thread_getpid());
 
-    /* initialize low-level driver */
+    /* initialize low-level driver (listening mode) */
     dev->driver->init(dev);
-    
+	netopt_state_t sleepstate = NETOPT_STATE_IDLE;
+    dev->driver->set(dev, NETOPT_STATE, &sleepstate, sizeof(netopt_state_t));
+                
+
     /* start the event loop */
     while (1) {
         DEBUG("gnrc_netdev2: waiting for incoming messages\n");
@@ -409,6 +412,10 @@ static void *_gnrc_netdev2_duty_thread(void *args)
 				if (pending_num && !radio_busy) {
 					/* Send a packet to the same destination */
 					msg_queue_send(pkt_queue, recent_dst_l2addr, gnrc_dutymac_netdev2); 
+				} 
+				if (!pending_num) {
+					bool pending = false;
+                	dev->driver->set(dev, NETOPT_ACK_PENDING, &pending, sizeof(bool));
 				}
 				break;
             case NETDEV2_MSG_TYPE_EVENT:
@@ -418,7 +425,11 @@ static void *_gnrc_netdev2_duty_thread(void *args)
             case GNRC_NETAPI_MSG_TYPE_SND:
                 DEBUG("gnrc_netdev2: GNRC_NETAPI_MSG_TYPE_SND received\n");
 				/* Queue a packet */
-				msg_queue_add(pkt_queue, &msg);	
+				if (msg_queue_add(pkt_queue, &msg)) {
+					/* If a packet exists, send ACKs with pending bit */	
+					bool pending = true;
+                	dev->driver->set(dev, NETOPT_ACK_PENDING, &pending, sizeof(bool));
+				}
 		        break;
             case GNRC_NETAPI_MSG_TYPE_SET:
                 /* read incoming options */

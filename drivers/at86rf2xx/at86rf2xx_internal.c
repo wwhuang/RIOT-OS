@@ -160,7 +160,8 @@ void at86rf2xx_configure_phy(at86rf2xx_t *dev)
     do {
         state = at86rf2xx_get_status(dev);
     }
-    while ((state == AT86RF2XX_STATE_BUSY_TX_ARET) || (state == AT86RF2XX_STATE_BUSY_RX_AACK));
+    while ((state == AT86RF2XX_STATE_BUSY_TX_ARET) || (state == AT86RF2XX_STATE_BUSY_RX_AACK) ||
+		   (state == AT86RF2XX_STATE_BUSY_TX)      || (state == AT86RF2XX_STATE_BUSY_RX) );
 
     /* we must be in TRX_OFF before changing the PHY configuration */
     at86rf2xx_force_trx_off(dev);

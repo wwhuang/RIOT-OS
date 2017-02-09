@@ -34,6 +34,7 @@
 #include "net/ethernet/hdr.h"
 #include "random.h"
 #include "net/ieee802154.h"
+#include <periph/gpio.h>
 
 
 #include "xtimer.h"
@@ -149,7 +150,8 @@ void dutycycle_cb(void* arg) {
 	switch(dutycycle_state) {
 		case DUTY_INIT:
 			break;
-		case DUTY_SLEEP:
+		case DUTY_SLEEP:							
+			//gpio_write(GPIO_PIN(0,19),1);
 			if (pending_num) {
 				dutycycle_state = DUTY_TX_DATA;
 			} else { 
@@ -193,20 +195,25 @@ static void _event_cb(netdev2_t *dev, netdev2_event_t event)
         switch(event) {
             case NETDEV2_EVENT_RX_COMPLETE:
                 {
-                    gnrc_pktsnip_t *pkt = gnrc_dutymac_netdev2->recv(gnrc_dutymac_netdev2);
 					xtimer_remove(&timer);
-					dutycycle_cb((void*)gnrc_dutymac_netdev2);
-                    if (pkt) {
+					msg_t msg;
+					msg.type = GNRC_NETDEV2_DUTYCYCLE_MSG_TYPE_EVENT;
+					dutycycle_state = DUTY_LISTEN;
+					msg_send(&msg, gnrc_dutymac_netdev2->pid);		
+                    gnrc_pktsnip_t *pkt = gnrc_dutymac_netdev2->recv(gnrc_dutymac_netdev2);
+                    //dutycycle_cb((void*)gnrc_dutymac_netdev2);
+										                    
+					if (pkt) {
                         _pass_on_packet(pkt);
-                    }					
-                    break;
+                    }			
+					break;
                 }
             case NETDEV2_EVENT_TX_MEDIUM_BUSY:
 #ifdef MODULE_NETSTATS_L2
                 dev->stats.tx_failed++;
 #endif
                 break;
-            case NETDEV2_EVENT_TX_COMPLETE:
+            case NETDEV2_EVENT_TX_COMPLETE_PENDING:
 #ifdef MODULE_NETSTATS_L2
          	    dev->stats.tx_success++;
 #endif
@@ -220,11 +227,34 @@ static void _event_cb(netdev2_t *dev, netdev2_event_t event)
 					msg_send(&msg, gnrc_dutymac_netdev2->pid);
 				}
 	            break;
-			case NETDEV2_EVENT_TX_NOACK:
+            case NETDEV2_EVENT_TX_COMPLETE:
+#ifdef MODULE_NETSTATS_L2
+         	    dev->stats.tx_success++;
+#endif
 				radio_busy = 0; /* radio is free now */				
 				xtimer_remove(&timer);
-				if (dutycycle_state == DUTY_TX_BEACON) {
-					dutycycle_cb((void*)gnrc_dutymac_netdev2);
+				if (dutycycle_state == DUTY_TX_BEACON) { /* Sleep again */
+					msg_t msg;
+					dutycycle_state = DUTY_SLEEP;
+					msg.type = GNRC_NETDEV2_DUTYCYCLE_MSG_TYPE_EVENT;
+					msg_send(&msg, gnrc_dutymac_netdev2->pid);
+				} else {
+					msg_t msg;
+					msg.type = GNRC_NETDEV2_DUTYCYCLE_MSG_TYPE_REMOVE_QUEUE;
+					msg_send(&msg, gnrc_dutymac_netdev2->pid);
+				}
+	            break;
+			case NETDEV2_EVENT_TX_NOACK:
+#ifdef MODULE_NETSTATS_L2
+                dev->stats.tx_failed++;
+#endif
+				radio_busy = 0; /* radio is free now */				
+				xtimer_remove(&timer);
+				if (dutycycle_state == DUTY_TX_BEACON) { /* Sleep again */
+					msg_t msg;
+					dutycycle_state = DUTY_SLEEP;
+					msg.type = GNRC_NETDEV2_DUTYCYCLE_MSG_TYPE_EVENT;
+					msg_send(&msg, gnrc_dutymac_netdev2->pid);
 				} else {
 					msg_t msg;
 					msg.type = GNRC_NETDEV2_DUTYCYCLE_MSG_TYPE_REMOVE_QUEUE;
@@ -290,7 +320,7 @@ static void *_gnrc_netdev2_duty_thread(void *args)
 
     /* initialize low-level driver */
     dev->driver->init(dev);
-    
+
     /* start the event loop */
     while (1) {
         DEBUG("gnrc_netdev2: waiting for incoming messages\n");
@@ -317,17 +347,26 @@ static void *_gnrc_netdev2_duty_thread(void *args)
 							msg_queue_send(pkt_queue, gnrc_dutymac_netdev2);
 							break;
 						case DUTY_LISTEN: /* Idle listening after transmission or reception */
-							sleepstate = NETOPT_STATE_IDLE;
-							dev->driver->set(dev, NETOPT_STATE, &sleepstate, sizeof(netopt_state_t));
-							xtimer_set(&timer, DUTYCYCLE_WAKEUP_INTERVAL);
-							printf("radio remains on\n");
+							dev->driver->get(dev, NETOPT_STATE, &sleepstate, sizeof(netopt_state_t));
+							if (sleepstate == NETOPT_STATE_SLEEP) { 
+								/* Radio is sleeping since no packet is expected */
+								//gpio_write(GPIO_PIN(0,19),0);
+								dutycycle_state = DUTY_SLEEP;
+								xtimer_set(&timer, DUTYCYCLE_SLEEP_INTERVAL);
+								DEBUG("gnrc_netdev2: RADIO OFF\n\n"); 
+							} else {
+								sleepstate = NETOPT_STATE_IDLE;
+								dev->driver->set(dev, NETOPT_STATE, &sleepstate, sizeof(netopt_state_t));
+								xtimer_set(&timer, DUTYCYCLE_WAKEUP_INTERVAL);
+								DEBUG("gnrc_netdev2: RADIO REMAINS ON\n");
+							}
 							break;
 						case DUTY_SLEEP: /* Go to sleep */
+							//gpio_write(GPIO_PIN(0,19),0);
 							sleepstate = NETOPT_STATE_SLEEP;
-							xtimer_remove(&timer);
 							dev->driver->set(dev, NETOPT_STATE, &sleepstate, sizeof(netopt_state_t));
-							printf("radio off\n\n"); 
 							xtimer_set(&timer, DUTYCYCLE_SLEEP_INTERVAL);
+							DEBUG("gnrc_netdev2: RADIO OFF\n\n"); 
 							break;
 						default:
 							break;
@@ -344,8 +383,13 @@ static void *_gnrc_netdev2_duty_thread(void *args)
 				if (pending_num && !radio_busy) {
 					/* Send any packet */
 					msg_queue_send(pkt_queue, gnrc_dutymac_netdev2); 
-				} else {
-					dutycycle_cb(gnrc_dutymac_netdev2);
+				} else { 
+					/* Listen to channel after sending all packets */
+					sleepstate = NETOPT_STATE_IDLE;
+					dev->driver->set(dev, NETOPT_STATE, &sleepstate, sizeof(netopt_state_t));
+					xtimer_set(&timer, DUTYCYCLE_WAKEUP_INTERVAL);
+					dutycycle_state = DUTY_LISTEN;
+					DEBUG("gnrc_netdev2: RADIO REMAINS ON\n");			
 				}
 				break;
             case NETDEV2_MSG_TYPE_EVENT:
