@@ -145,11 +145,9 @@ void at86rf2xx_reset(at86rf2xx_t *dev)
     /* enable interrupts */
     at86rf2xx_reg_write(dev, AT86RF2XX_REG__IRQ_MASK,
                         AT86RF2XX_IRQ_STATUS_MASK__TRX_END);
-#if DUTYCYCLE_EN
-#if LEAF_NODE
+//#if LEAF_NODE
     //at86rf2xx_set_option(dev, AT86RF2XX_OPT_TELL_RX_START, true); 
-#endif
-#endif
+//#endif
     at86rf2xx_set_option(dev, AT86RF2XX_OPT_ACK_PENDING, true); 
 
 	/* CCA setting */
