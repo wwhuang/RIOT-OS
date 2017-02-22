@@ -125,10 +125,10 @@ static gnrc_pktsnip_t *_recv(gnrc_netdev2_t *gnrc_netdev2)
                 return NULL;
             }
             netif_hdr = _make_netif_hdr(ieee802154_hdr->data);
-			printf(", len %u/%u\n", mhr_len,nread);
+			DEBUG(", len %u/%u\n", mhr_len,nread);
 #if LEAF_NODE
 			if (!(((uint8_t*)pkt->data)[0] & IEEE802154_FCF_FRAME_PEND)) {
-				printf("no pending\n");
+				DEBUG("no pending\n");
 				netopt_state_t sleepstate = NETOPT_STATE_SLEEP;
 				netdev->driver->set(netdev, NETOPT_STATE, &sleepstate, sizeof(netopt_state_t));
 			}
