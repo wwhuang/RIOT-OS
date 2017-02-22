@@ -145,9 +145,6 @@ void at86rf2xx_reset(at86rf2xx_t *dev)
     /* enable interrupts */
     at86rf2xx_reg_write(dev, AT86RF2XX_REG__IRQ_MASK,
                         AT86RF2XX_IRQ_STATUS_MASK__TRX_END);
-//#if LEAF_NODE
-    //at86rf2xx_set_option(dev, AT86RF2XX_OPT_TELL_RX_START, true); 
-//#endif
     at86rf2xx_set_option(dev, AT86RF2XX_OPT_ACK_PENDING, true); 
 
 	/* CCA setting */
@@ -216,17 +213,14 @@ void at86rf2xx_tx_prepare(at86rf2xx_t *dev)
              state == AT86RF2XX_STATE_BUSY_TX);
     if (state != AT86RF2XX_STATE_TX_ARET_ON) {
 #if DUTYCYCLE_EN
+		/* For dutycycling, the radio will go to RX mode after sending a packet */
 		dev->idle_state = AT86RF2XX_STATE_RX_AACK_ON;
 #else
         dev->idle_state = state;
 #endif
     }
 
-//#if AUTO_CSMA_EN
     at86rf2xx_set_state(dev, AT86RF2XX_STATE_TX_ARET_ON);
-//#else
-//    at86rf2xx_set_state(dev, AT86RF2XX_STATE_PLL_ON);
-//#endif
     dev->tx_frame_len = IEEE802154_FCS_LEN;
 }
 
