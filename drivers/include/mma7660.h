@@ -38,10 +38,21 @@ extern "C"
   */
 typedef struct
 {
-  i2c_t i2c;
-  uint8_t addr;
+  i2c_t i2c;      /**< the I2C handle */
+  uint8_t addr;   /**< the device I2C address */
 } mma7660_t;
+/**@}*/
 
+/**
+  * @brief   Parameters for an MMA7660 device
+  * @{
+  */
+typedef struct
+{
+  i2c_t i2c;      /**< the I2C handle */
+  uint8_t addr;   /**< the device I2C address */
+} mma7660_params_t;
+/**@}*/
 
 #define MODE_ACTIVE_SHIFT    0
 #define MODE_AUTOWAKE_SHIFT  3
@@ -59,7 +70,7 @@ typedef struct
 #define MMA7660_INTSOURCE_SHY         0x40
 #define MMA7660_INTSOURCE_SHZ         0x80
 
-#define MMA7660_SR_AMPD   0x00
+#define MMA7660_SR_AMPD   0x00 <
 #define MMA7660_SR_AM64   0x01
 #define MMA7660_SR_AM32   0x02
 #define MMA7660_SR_AM16   0x03
@@ -77,26 +88,34 @@ typedef struct
 
 #define MMA7660_ADDR    0x4C
 
+/* This is actually 46.9 but the sensor is not accurate enough
+ * for that to matter
+ */
+#define MMA7660_MG_PER_COUNT 47
+
 /**
  * @brief   Initialize an MMA7660 device
  *
  * @param[out] dev          device descriptor
- * @param[in] i2c           I2C bus the device is connected to
- * @param[in] address       I2C address of the device, generally 0x4C
+ * @param[in] params        device configuration parameters
  *
  * @return                   0 on success
  * @return                  -1 on error
  */
-int mma7660_init(mma7660_t *dev, i2c_t i2c, uint8_t address);
+int mma7660_init(mma7660_t *dev, const mma7660_params_t *params);
 
 
 /**
  * @brief   Set the mode register
  *
  * @param[in] dev          device descriptor
+ * @param[in] active       0=sleep 1=active
+ * @param[in] autowake     see datasheet
+ * @param[in] autosleep    see datasheet
+ * @param[in] prescale     main clock prescalar
  *
  * See page 17 of http://www.nxp.com/files/sensors/doc/data_sheet/MMA7660FC.pdf
- * for information about the values of the parameters
+ * for information about the parameters
  *
  * @return                   0 on success
  * @return                  -1 on error
@@ -141,8 +160,11 @@ int mma7660_config_interrupts(mma7660_t *dev, uint8_t isource_flags);
  * @brief   Configure the sample rate
  *
  * @param[in] dev             device descriptor
+ * @param[in] amsr            active mode sample rate (pg 18 of DS)
+ * @param[in] awsr            auto wake sample rate (pg 19 of DS)
+ * @param[in] filt            filter samples (pg 19 of DS)
  *
- * See page 18 of http://www.nxp.com/files/sensors/doc/data_sheet/MMA7660FC.pdf
+ * See datasheet http://www.nxp.com/files/sensors/doc/data_sheet/MMA7660FC.pdf
  * for details about the parameters
  *
  * @return                   0 on success
@@ -177,7 +199,20 @@ int mma7660_config_pdet(mma7660_t *dev, uint8_t pdth, uint8_t enabled_axes);
 int mma7660_config_pd(mma7660_t *dev, uint8_t pd) ;
 
 /**
- * @brief   Configure the tap detection debounce count
+ * @brief   Read the acceleration counts converted to mG
+ *
+ * @param[in] dev             device descriptor
+ * @param[out] x              the X axis value in mG
+ * @param[out] y              the Y axis value in mG
+ * @param[out] z              the Z axis value in mG
+ *
+ * @return                   0 on success
+ * @return                  -1 on error
+ */
+int mma7660_read(mma7660_t *dev, int16_t *x, int16_t *y, int16_t *z);
+
+/**
+ * @brief   Read the acceleration counts (unconverted)
  *
  * @param[in] dev             device descriptor
  * @param[out] x              the X axis value
@@ -190,7 +225,7 @@ int mma7660_config_pd(mma7660_t *dev, uint8_t pd) ;
  * @return                   0 on success
  * @return                  -1 on error
  */
-int mma7660_read(mma7660_t *dev, int8_t *x, int8_t *y, int8_t *z);
+int mma7660_read_counts(mma7660_t *dev, int8_t *x, int8_t *y, int8_t *z);
 
 #ifdef __cplusplus
 }

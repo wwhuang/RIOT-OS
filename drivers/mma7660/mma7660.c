@@ -122,14 +122,14 @@ int mma7660_config_pd(mma7660_t *dev, uint8_t pd) {
     return 0;
 }
 
-int mma7660_init(mma7660_t *dev, i2c_t i2c, uint8_t address) {
+int mma7660_init(mma7660_t *dev, const mma7660_params_t *params) {
     /* write device descriptor */
-    dev->i2c = i2c;
-    dev->addr = address;
+    dev->i2c = params->i2c;
+    dev->addr = params->addr;
 
     i2c_acquire(dev->i2c);
     /* initialize the I2C bus */
-    if (i2c_init_master(i2c, I2C_SPEED) < 0) {
+    if (i2c_init_master(dev->i2c, I2C_SPEED) < 0) {
         i2c_release(dev->i2c);
         return -1;
     }
@@ -141,7 +141,7 @@ int mma7660_init(mma7660_t *dev, i2c_t i2c, uint8_t address) {
     return 0;
 }
 
-int mma7660_read(mma7660_t *dev, int8_t *x, int8_t *y, int8_t *z)
+int mma7660_read_counts(mma7660_t *dev, int8_t *x, int8_t *y, int8_t *z)
 {
     int retries = 6;
     char t;
@@ -190,4 +190,20 @@ int mma7660_read(mma7660_t *dev, int8_t *x, int8_t *y, int8_t *z)
     if (retries > 0)
         return 0;
     return -2;
+}
+
+int mma7660_read(mma7660_t *dev, int16_t *x, int16_t *y, int16_t *z) {
+  int8_t countx, county, countz;
+  int rv;
+
+  rv = mma7660_read_counts(dev, &countx, &county, &countz);
+  if (rv) {
+    return rv;
+  }
+
+  *x = ((int16_t)countx)*MMA7660_MG_PER_COUNT;
+  *y = ((int16_t)county)*MMA7660_MG_PER_COUNT;
+  *z = ((int16_t)countz)*MMA7660_MG_PER_COUNT;
+
+  return 0;
 }
