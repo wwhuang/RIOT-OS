@@ -643,14 +643,11 @@ static void _isr(netdev2_t *netdev)
             if (!(dev->netdev.flags & AT86RF2XX_OPT_TELL_RX_END)) {
                 return;
             }
-			//while(at86rf2xx_get_status(dev) == AT86RF2XX_STATE_BUSY_RX_AACK);
 
             netdev->event_callback(netdev, NETDEV2_EVENT_RX_COMPLETE);
         }
         else if (state == AT86RF2XX_STATE_TX_ARET_ON ||
-                 state == AT86RF2XX_STATE_BUSY_TX_ARET ||
-				 state == AT86RF2XX_STATE_PLL_ON ||
-				 state == AT86RF2XX_STATE_BUSY_TX) {
+                 state == AT86RF2XX_STATE_BUSY_TX_ARET) {
             /* check for more pending TX calls and return to idle state if
              * there are none */
             assert(dev->pending_tx != 0);
