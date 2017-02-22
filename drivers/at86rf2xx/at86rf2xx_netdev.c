@@ -36,7 +36,7 @@
 #include "at86rf2xx_registers.h"
 #include "xtimer.h"
 
-#define ENABLE_DEBUG (1)
+#define ENABLE_DEBUG (0)
 #include "debug.h"
 
 #define _MAX_MHR_OVERHEAD   (25)
@@ -114,7 +114,6 @@ static int _send(netdev2_t *netdev, const struct iovec *vector, unsigned count)
 #ifdef MODULE_NETSTATS_L2
         netdev->stats.tx_bytes += len;
 #endif
-		//printf("len %u\n", ptr->iov_len);
         len = at86rf2xx_tx_load(dev, ptr->iov_base, ptr->iov_len, len);
     }
 
@@ -391,7 +390,7 @@ static int _set(netdev2_t *netdev, netopt_t opt, void *val, size_t len)
     at86rf2xx_t *dev = (at86rf2xx_t *) netdev;
     uint8_t old_state = at86rf2xx_get_status(dev);
     int res = -ENOTSUP;
-	//printf("set radio %2x %2x\n", old_state, opt);
+
     if (dev == NULL) {
         return -ENODEV;
     }

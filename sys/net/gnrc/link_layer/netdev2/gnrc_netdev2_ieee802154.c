@@ -54,7 +54,8 @@ static gnrc_pktsnip_t *_make_netif_hdr(uint8_t *mhr)
         DEBUG("_make_netif_hdr: unable to get addresses\n");
         return NULL;
     }
-	printf("[Rx packet] %u/%2x%2x(%4x)->%u/%2x%2x(%4x), flag %u, seq %u", src_len, src[0],src[1], 
+	
+	DEBUG("[Rx packet] %u/%2x%2x(%4x)->%u/%2x%2x(%4x), flag %u, seq %u", src_len, src[0],src[1], 
 			_pan_tmp_src.u16, dst_len, dst[0],dst[1], _pan_tmp_dst.u16, mhr[0], mhr[2]);
 
     /* allocate space for header */
@@ -208,6 +209,9 @@ static int _send(gnrc_netdev2_t *gnrc_netdev2, gnrc_pktsnip_t *pkt)
         src_len = IEEE802154_SHORT_ADDRESS_LEN;
         src = state->short_addr;
     }
+
+	/* ToDo: Current version does not use a neighbor discovery protocol, which cannot support unicast.
+             We can manually set a destination (router's address) here */
 #if LEAF_NODE
 	int16_t ddd = 0xb434;
 	dst = (uint8_t*)&ddd;
@@ -216,6 +220,7 @@ static int _send(gnrc_netdev2_t *gnrc_netdev2, gnrc_pktsnip_t *pkt)
 	int16_t ddd = 0x354e;
 	dst = (uint8_t*)&ddd;
 #endif
+
     /* fill MAC header, seq should be set by device */
     if ((res = ieee802154_set_frame_hdr(mhr, src, src_len,
                                         dst, dst_len, dev_pan,
@@ -224,7 +229,8 @@ static int _send(gnrc_netdev2_t *gnrc_netdev2, gnrc_pktsnip_t *pkt)
         return -EINVAL;
     }
 
-	printf("[Tx Data] %u/%2x%2x->%u/%2x%2x, flag %2x, seq %u\n", src_len, src[0],src[1], dst_len, dst[0],dst[1], flags, state->seq-1);
+	DEBUG("[Tx Data] %u/%2x%2x->%u/%2x%2x, flag %2x, seq %u\n", src_len, src[0],src[1], dst_len, 
+			dst[0],dst[1], flags, state->seq-1);
 
     /* prepare packet for sending */
     vec_snip = gnrc_pktbuf_get_iovec(pkt, &n);
@@ -296,7 +302,7 @@ static int _send_beacon(gnrc_netdev2_t *gnrc_netdev2)
     }
 	mhr[res++] = command_id; /* MAC command ID: Data Request */
 
-	printf("[Tx DataReq] %u/%2x%2x->%u/%2x%2x, flag %2x, seq %u\n", src_len, src[0],src[1], dst_len, dst[0],dst[1], flags, state->seq-1);
+	//printf("[Tx DataReq] %u/%2x%2x->%u/%2x%2x, flag %2x, seq %u\n", src_len, src[0],src[1], dst_len, dst[0],dst[1], flags, state->seq-1);
 	
     /* prepare packet for sending */
     vector.iov_base = mhr;

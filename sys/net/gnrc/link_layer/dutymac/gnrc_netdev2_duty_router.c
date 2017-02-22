@@ -13,8 +13,6 @@
  * @file
  * @brief       Glue for netdev2 devices to netapi (duty-cycling protocol for routers)
  *
- * @author      Hauke Petersen <hauke.petersen@fu-berlin.de>
- * @author      Kaspar Schleiser <kaspar@schleiser.de>
  * @author      Hyung-Sin Kim <hs.kim@berkeley.edu>
  * @}
  */
