@@ -34,7 +34,6 @@
 #include "at86rf2xx_netdev.h"
 #include "at86rf2xx_internal.h"
 #include "at86rf2xx_registers.h"
-#include "xtimer.h"
 
 #define ENABLE_DEBUG (0)
 #include "debug.h"
