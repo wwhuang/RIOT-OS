@@ -210,7 +210,6 @@ netopt_state_t _get_state(at86rf2xx_t *dev)
         case AT86RF2XX_STATE_SLEEP:
             return NETOPT_STATE_SLEEP;
         case AT86RF2XX_STATE_BUSY_RX_AACK:
-		case AT86RF2XX_STATE_BUSY_RX:
             return NETOPT_STATE_RX;
         case AT86RF2XX_STATE_BUSY_TX_ARET:
         case AT86RF2XX_STATE_TX_ARET_ON:
