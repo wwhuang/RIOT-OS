@@ -44,6 +44,7 @@ you used. We recommend including this information in your branches, such as
 HOTFIXES:
 - Fix for https://github.com/RIOT-OS/RIOT/pull/6640
 - Fix for https://github.com/RIOT-OS/RIOT/issues/6655
+- Fix for https://github.com/RIOT-OS/RIOT/pull/6656
 
 upstream readme:
 
