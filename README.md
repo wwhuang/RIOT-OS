@@ -41,6 +41,10 @@ can base your PR on a combined branch, but please make clear which version
 you used. We recommend including this information in your branches, such as
 `c7.1-my-feature`.
 
+HOTFIXES:
+- Fix for https://github.com/RIOT-OS/RIOT/pull/6640
+- Fix for https://github.com/RIOT-OS/RIOT/issues/6655
+
 upstream readme:
 
 
