@@ -62,11 +62,11 @@ int adc_init(adc_t channel) {
     ADC_DEV->REFCTRL.bit.REFCOMP = 1;
 
     /* Set the accumulation and divide result */
-    ADC_DEV->AVGCTRL.bit.SAMPLENUM = 8;
+    ADC_DEV->AVGCTRL.bit.SAMPLENUM = 4;
 	  ADC_DEV->AVGCTRL.bit.ADJRES    = 0;//ADC_AVGCTRL_ADJRES(divideResult) | accumulate;
 
     /* Set Sample length */
-    ADC_DEV->SAMPCTRL.bit.SAMPLEN = 32;//ADC_SAMPCTRL_SAMPLEN(ADC_0_SAMPLE_LENGTH);
+    ADC_DEV->SAMPCTRL.bit.SAMPLEN = 16;//ADC_SAMPCTRL_SAMPLEN(ADC_0_SAMPLE_LENGTH);
 	  while(ADC_DEV->STATUS.reg & ADC_STATUS_SYNCBUSY);
 
     /* Configure CTRLB Register HERE IS THE RESOLUTION SET!*/
@@ -75,7 +75,7 @@ int adc_init(adc_t channel) {
     ADC_DEV->CTRLB.bit.CORREN    = 0;
     ADC_DEV->CTRLB.bit.LEFTADJ   = 0; // Left-adjusted results
     ADC_DEV->CTRLB.bit.RESSEL    = ADC_CTRLB_RESSEL_12BIT_Val;
-    ADC_DEV->CTRLB.bit.PRESCALER = ADC_CTRLB_PRESCALER_DIV256_Val;
+    ADC_DEV->CTRLB.bit.PRESCALER = ADC_CTRLB_PRESCALER_DIV128_Val;
     while(ADC_DEV->STATUS.reg & ADC_STATUS_SYNCBUSY);
 
     ADC_DEV->INPUTCTRL.bit.GAIN        = ADC_INPUTCTRL_GAIN_1X_Val;
