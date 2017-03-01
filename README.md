@@ -3,6 +3,9 @@
 Minor changes over v7.1, added support for the fxos8700. Making this a release
 so that the new hamilton-3C qualified firmware can reference it
 
+HOTFIXES:
+- Merge ADC constant change tweak
+
 # Hamilton-combined v7.1 - February 24nd 2017
 
 Board support for the Hamilton mote is maintained as a set of rebasing branches
