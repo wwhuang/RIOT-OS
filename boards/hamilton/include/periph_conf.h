@@ -87,10 +87,6 @@ extern "C" {
 #define DUTYCYCLE_EN               (1)
 #endif
 
-#ifndef DUTYCYCLE_WAKEUP_INTERVAL
-#define DUTYCYCLE_WAKEUP_INTERVAL  6000UL    /* Don't change it w/o particular reasons */
-#endif
-
 #ifndef DUTYCYCLE_SLEEP_INTERVAL
 #define DUTYCYCLE_SLEEP_INTERVAL   2000000UL /* 1) When it is ZERO, a leaf node does not send beacons
                         												(i.e., extremely low duty-cycle,
@@ -100,8 +96,9 @@ extern "C" {
                         												   but uses the value for downlink transmissions */
 #endif
 
-#define ROUTER    (0)        /* Plugged-in router */
-#define LEAF_NODE (1-ROUTER) /* Duty-cycling node */
+#ifndef LEAF_NODE
+#define LEAF_NODE (1) /* Duty-cycling node */
+#endif
 #define AUTO_CSMA_EN               (0)
 /** @} */
 

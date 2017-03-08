@@ -38,10 +38,9 @@
 
 #include "xtimer.h"
 
-#if DUTYCYCLE_EN
 #if LEAF_NODE
 
-#define ENABLE_DEBUG    (0)
+#define ENABLE_DEBUG    (1)
 #include "debug.h"
 
 #if defined(MODULE_OD) && ENABLE_DEBUG
@@ -50,6 +49,8 @@
 
 #define NETDEV2_NETAPI_MSG_QUEUE_SIZE 8
 #define NETDEV2_PKT_QUEUE_SIZE 4
+#define DUTYCYCLE_WAKEUP_INTERVAL  6000UL    /* Don't change it w/o particular reasons */
+
 
 static void _pass_on_packet(gnrc_pktsnip_t *pkt);
 
@@ -440,7 +441,7 @@ static void *_gnrc_netdev2_duty_thread(void *args)
 				if (dutycycle_state == DUTY_INIT) {
 					gnrc_pktsnip_t *pkt = msg.content.ptr;
 					gnrc_dutymac_netdev2->send(gnrc_dutymac_netdev2, pkt);	
-					DEBUG("gnrc_netdev2: SENDING IMMEDIATELY %lu\n");						
+					DEBUG("gnrc_netdev2: SENDING IMMEDIATELY\n");						
 				} else {
 					if (_xtimer_usec_from_ticks(timer.target - xtimer_now().ticks32) < 50000 || 
 						pending_num || radio_busy) {
@@ -533,5 +534,4 @@ kernel_pid_t gnrc_netdev2_dutymac_init(char *stack, int stacksize, char priority
 
     return res;
 }
-#endif
 #endif
