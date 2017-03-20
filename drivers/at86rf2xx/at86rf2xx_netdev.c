@@ -191,6 +191,9 @@ static int _set_state(at86rf2xx_t *dev, netopt_state_t state)
         case NETOPT_STATE_IDLE:
             at86rf2xx_set_state(dev, AT86RF2XX_STATE_RX_AACK_ON);
             break;
+        case NETOPT_STATE_OFF:
+            at86rf2xx_set_state(dev, AT86RF2XX_STATE_FORCE_TRX_OFF);
+            break;
         case NETOPT_STATE_TX:
             if (dev->netdev.flags & AT86RF2XX_OPT_PRELOADING) {
                 at86rf2xx_tx_exec(dev);
@@ -215,6 +218,8 @@ netopt_state_t _get_state(at86rf2xx_t *dev)
         case AT86RF2XX_STATE_BUSY_TX_ARET:
         case AT86RF2XX_STATE_TX_ARET_ON:
             return NETOPT_STATE_TX;
+		case AT86RF2XX_STATE_TRX_OFF:
+			return NETOPT_STATE_OFF;
         case AT86RF2XX_STATE_RX_AACK_ON:
         default:
             return NETOPT_STATE_IDLE;
@@ -506,7 +511,6 @@ static int _set(netdev2_t *netdev, netopt_t opt, void *val, size_t len)
             at86rf2xx_set_cca_threshold(dev, *((int8_t *)val));
             res = sizeof(int8_t);
             break;
-
         default:
             break;
     }
@@ -576,12 +580,17 @@ static void _isr(netdev2_t *netdev)
              * there are none */
             assert(dev->pending_tx != 0);
             if ((--dev->pending_tx) == 0) {
-#if DUTYCYCLE_EN
+#ifdef MODULE_GNRC_DUTYMAC
 #if LEAF_NODE
 				if (trac_status == AT86RF2XX_TRX_STATE__TRAC_SUCCESS_DATA_PENDING) {
 	                dev->idle_state = AT86RF2XX_STATE_RX_AACK_ON;		
 				}
 #endif
+#endif
+#ifdef MODULE_OPENTHREAD
+				if (trac_status == AT86RF2XX_TRX_STATE__TRAC_SUCCESS_DATA_PENDING) {
+	                dev->idle_state = AT86RF2XX_STATE_RX_AACK_ON;		
+				}
 #endif
                 at86rf2xx_set_state(dev, dev->idle_state);
                 DEBUG("[at86rf2xx] return to state 0x%x\n", dev->idle_state);
@@ -596,7 +605,7 @@ static void _isr(netdev2_t *netdev)
                         DEBUG("[at86rf2xx] TX SUCCESS\n");
                         break;
                     case AT86RF2XX_TRX_STATE__TRAC_SUCCESS_DATA_PENDING:
-                        netdev->event_callback(netdev, NETDEV2_EVENT_TX_COMPLETE_PENDING);
+                        netdev->event_callback(netdev, NETDEV2_EVENT_TX_COMPLETE_DATA_PENDING);
                         DEBUG("[at86rf2xx] TX SUCCESS PENDING\n");
                         break;
                     case AT86RF2XX_TRX_STATE__TRAC_NO_ACK:

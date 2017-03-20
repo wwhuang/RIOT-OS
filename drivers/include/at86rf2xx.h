@@ -136,8 +136,10 @@ extern "C" {
 #define AT86RF2XX_OPT_TELL_RX_END    (0x4000)       /**< notify MAC layer on RX
                                                      *   finished */
 #define AT86RF2XX_OPT_TELL_AMI       (0x8000)       /**< notify MAC layer on Address matching */
-#define AT86RF2XX_OPT_TELL_CCA_DONE  (0x9000)       /**< notify MAC layer on CCA
-                                                     *   finished */
+
+#ifdef MODULE_OPENTHREAD
+#define AT86RF2XX_OPT_RX_LISTENING   (0x9000)      /**< detection of reception active */
+#endif
 /** @} */
 
 /**
@@ -251,6 +253,15 @@ void at86rf2xx_set_chan(at86rf2xx_t *dev, uint8_t chan);
  * @return                  the currently set channel page
  */
 uint8_t at86rf2xx_get_page(at86rf2xx_t *dev);
+
+#ifdef MODULE_OPENTHREAD
+/**
+ * @brief   Enable/disable AT86RF2XX receiver
+ *
+ * @param[in] dev           device to change receiver status
+ */
+bool at86rf2xx_receiver_listening(at86rf2xx_t *dev);
+#endif
 
 /**
  * @brief   Set the channel page of the given device

@@ -223,7 +223,7 @@ static inline void gnrc_netdev2_set_tx_feedback(gnrc_netdev2_t *dev,
 }
 #endif
 
-#if DUTYCYCLE_EN
+#if MODULE_GNRC_DUTYMAC
 /**
   * @brief Initialize GNRC netdev2 handler thread for dutycycling
   *

@@ -83,10 +83,6 @@ extern "C" {
  * @name Network configuration
  * @{
  */
-#ifndef DUTYCYCLE_EN
-#define DUTYCYCLE_EN               (1)
-#endif
-
 #ifndef DUTYCYCLE_SLEEP_INTERVAL
 #define DUTYCYCLE_SLEEP_INTERVAL   2000000UL /* 1) When it is ZERO, a leaf node does not send beacons
                         												(i.e., extremely low duty-cycle,

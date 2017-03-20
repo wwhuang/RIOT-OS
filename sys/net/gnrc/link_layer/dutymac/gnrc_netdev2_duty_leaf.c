@@ -226,7 +226,7 @@ static void _event_cb(netdev2_t *dev, netdev2_event_t event)
 #endif
 				radio_busy = 0; /* radio is free now */
                 break;
-            case NETDEV2_EVENT_TX_COMPLETE_PENDING: /* Response for Data Request packet*/
+            case NETDEV2_EVENT_TX_COMPLETE_DATA_PENDING: /* Response for Data Request packet*/
 				{
 #ifdef MODULE_NETSTATS_L2
          	    	dev->stats.tx_success++;

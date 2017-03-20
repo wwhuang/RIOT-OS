@@ -366,6 +366,7 @@ void at86rf2xx_set_option(at86rf2xx_t *dev, uint16_t option, bool state)
                 at86rf2xx_reg_write(dev, AT86RF2XX_REG__CSMA_SEED_1, tmp);
                 break;
             case AT86RF2XX_OPT_ACK_PENDING:
+				printf("Enable Pending ACK\n");
                 DEBUG("[at86rf2xx] opt: enabling pending ACKs\n");
                 tmp = at86rf2xx_reg_read(dev, AT86RF2XX_REG__CSMA_SEED_1);
                 tmp |= AT86RF2XX_CSMA_SEED_1__AACK_SET_PD;
@@ -381,12 +382,6 @@ void at86rf2xx_set_option(at86rf2xx_t *dev, uint16_t option, bool state)
                 DEBUG("[at86rf2xx] opt: enabling AMI IRQ\n");
                 tmp = at86rf2xx_reg_read(dev, AT86RF2XX_REG__IRQ_MASK);
                 tmp |= AT86RF2XX_IRQ_STATUS_MASK__AMI;
-                at86rf2xx_reg_write(dev, AT86RF2XX_REG__IRQ_MASK, tmp);
-                break;
-      			case AT86RF2XX_OPT_TELL_CCA_DONE:
-                DEBUG("[at86rf2xx] opt: enabling CCA_ED IRQ\n");
-                tmp = at86rf2xx_reg_read(dev, AT86RF2XX_REG__IRQ_MASK);
-                tmp |= AT86RF2XX_IRQ_STATUS_MASK__CCA_ED_DONE;
                 at86rf2xx_reg_write(dev, AT86RF2XX_REG__IRQ_MASK, tmp);
                 break;
             default:
@@ -425,6 +420,7 @@ void at86rf2xx_set_option(at86rf2xx_t *dev, uint16_t option, bool state)
                 at86rf2xx_reg_write(dev, AT86RF2XX_REG__CSMA_SEED_1, tmp);
                 break;
              case AT86RF2XX_OPT_ACK_PENDING:
+				printf("Disable Pending ACK\n");
                 DEBUG("[at86rf2xx] opt: disabling ACK pending\n");
                 tmp = at86rf2xx_reg_read(dev, AT86RF2XX_REG__CSMA_SEED_1);
                 tmp &= ~(AT86RF2XX_CSMA_SEED_1__AACK_SET_PD);
@@ -526,7 +522,7 @@ void at86rf2xx_set_state(at86rf2xx_t *dev, uint8_t state)
 			pm_block(PM_NUM_MODES-1);	
     }
 
-    DEBUG("(%2x,%2x,%2x)\n", at86rf2xx_get_status(dev), at86rf2xx_reg_read(dev, AT86RF2XX_REG__TRX_STATUS)
+    printf("(%2x,%2x,%2x)\n", at86rf2xx_get_status(dev), at86rf2xx_reg_read(dev, AT86RF2XX_REG__TRX_STATUS)
             & AT86RF2XX_TRX_STATUS_MASK__TRX_STATUS, state);
 }
 

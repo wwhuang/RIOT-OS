@@ -114,7 +114,7 @@ static gnrc_pktsnip_t *_recv(gnrc_netdev2_t *gnrc_netdev2)
                 return NULL;
             }
             netif_hdr = _make_netif_hdr(ieee802154_hdr->data);
-#if DUTYCYCLE_EN
+#if MODULE_GNRC_DUTYMAC
 #if LEAF_NODE
 			/* Early sleep or additional wakeup */
 			if (((uint8_t*)ieee802154_hdr->data)[0] & IEEE802154_FCF_FRAME_PEND) {
@@ -208,7 +208,7 @@ static int _send(gnrc_netdev2_t *gnrc_netdev2, gnrc_pktsnip_t *pkt)
         src_len = IEEE802154_SHORT_ADDRESS_LEN;
         src = state->short_addr;
     }
-#if DUTYCYCLE_EN
+#if MODULE_GNRC_DUTYMAC
 	/* ToDo: Current version does not use a neighbor discovery protocol, which cannot support unicast.
           We can manually set a destination (router's address) here */
 #if LEAF_NODE

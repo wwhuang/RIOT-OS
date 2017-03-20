@@ -204,6 +204,12 @@ bool at86rf2xx_cca(at86rf2xx_t *dev)
 void at86rf2xx_tx_exec(at86rf2xx_t *dev)
 {
     netdev2_t *netdev = (netdev2_t *)dev;
+#ifdef MODULE_OPENTHREAD
+    /* write frame length field in FIFO */
+    at86rf2xx_sram_write(dev, 0, &(dev->tx_frame_len), 1);
+
+	while (!at86rf2xx_cca(dev));
+#else
 #if AUTO_CSMA_EN
 #else
 	uint8_t MAX_BE = 8;
@@ -211,7 +217,6 @@ void at86rf2xx_tx_exec(at86rf2xx_t *dev)
 #endif
     /* write frame length field in FIFO */
     at86rf2xx_sram_write(dev, 0, &(dev->tx_frame_len), 1);
-
 #if AUTO_CSMA_EN
 #else
     while(!at86rf2xx_cca(dev)) {
@@ -228,6 +233,8 @@ void at86rf2xx_tx_exec(at86rf2xx_t *dev)
       }    
     }
 #endif
+#endif
+	printf("Send a packet\n");
 
     /* trigger sending of pre-loaded frame */
     at86rf2xx_reg_write(dev, AT86RF2XX_REG__TRX_STATE,
