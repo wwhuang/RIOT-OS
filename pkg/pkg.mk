@@ -14,7 +14,7 @@ endif
 
 ifneq (,$(wildcard $(PKG_DIR)/patches))
 $(PKG_BUILDDIR)/.git-patched: $(PKG_BUILDDIR)/.git-downloaded $(PKG_DIR)/Makefile $(PKG_DIR)/patches/*.patch
-	git -C $(PKG_BUILDDIR) checkout -f $(PKG_VERSION)
+#	git -C $(PKG_BUILDDIR) checkout -f $(PKG_VERSION)
 	git -C $(PKG_BUILDDIR) am --ignore-whitespace "$(PKG_DIR)"/patches/*.patch
 	touch $@
 endif
@@ -22,7 +22,8 @@ endif
 $(PKG_BUILDDIR)/.git-downloaded:
 	rm -Rf $(PKG_BUILDDIR)
 	mkdir -p $(PKG_BUILDDIR)
-	$(GITCACHE) clone "$(PKG_URL)" "$(PKG_VERSION)" "$(PKG_BUILDDIR)"
+#	$(GITCACHE) clone "$(PKG_URL)" "$(PKG_VERSION)" "$(PKG_BUILDDIR)"
+	$(GITCACHE) clone -b "$(PKG_BRANCH)" "$(PKG_URL)" "$(PKG_BUILDDIR)"
 	$(GIT_APPLY_PATCHES)
 	touch $@
 
