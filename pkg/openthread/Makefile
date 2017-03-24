@@ -1,8 +1,8 @@
 PKG_NAME=openthread
 PKG_URL=http://github.com/Hyungsin/openthread.git
-#PKG_VERSION=4d8304c234d1565a1e4d0ec37ad2e04efd498421
+# PKG_VERSION can be a branch or commit
+PKG_VERSION=basic_compile
 PKG_BUILDDIR ?= $(RIOTBASE)/pkg/$(PKG_NAME)/source
-PKG_BRANCH=basic_compile
 
 .PHONY: all
 
