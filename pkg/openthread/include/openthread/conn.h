@@ -18,7 +18,8 @@
 #ifndef OT_CONN_H
 #define OT_CONN_H
 
-#include <openthread.h>
+#include "openthread/openthread.h"
+#include "openthread/udp.h"
 #include "thread.h"
 #ifdef __cplusplus
 extern "C" {

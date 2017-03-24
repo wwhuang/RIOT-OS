@@ -6,10 +6,8 @@ INCLUDES += -I$(RIOTBASE)/pkg/openthread/include \
 			-I$(RIOTBASE)/pkg/openthread/source/third_party/mbedtls \
 			-I$(RIOTBASE)/pkg/openthread/source/third_party/mbedtls/repo/include
 
-
 ifneq (,$(filter openthread_contrib,$(USEMODULE)))
  DIRS += $(RIOTBASE)/pkg/openthread/contrib
  DIRS += $(RIOTBASE)/pkg/openthread/contrib/netdev2
  DIRS += $(RIOTBASE)/pkg/openthread/contrib/conn
 endif
-

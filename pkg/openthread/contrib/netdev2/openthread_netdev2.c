@@ -13,12 +13,12 @@
  * @author  José Ignacio Alamos <jialamos@uc.cl>
  */
 
-#include "ot.h"
 #include "msg.h"
-#include "openthread.h"
-#include "platform/alarm.h"
-#include "platform/uart.h"
-#include <cli/cli-uart.h>
+#include "ot.h"
+//#include "openthread/openthread.h"
+#include "openthread/platform/alarm.h"
+#include "openthread/platform/uart.h"
+#include "net/netdev2.h"
 #include <assert.h>
 
 #ifdef MODULE_OPENTHREAD_NCP
@@ -43,37 +43,66 @@ void otSignalTaskletPending(void)
     //Unused
 }
 
+void otTaskletsSignalPending(otInstance *aInstance)
+{
+    (void)aInstance;
+}
+
+
+void otPlatSettingsInit(otInstance *aInstance) 
+{
+}
+
+ThreadError otPlatSettingsGet(otInstance *aInstance, uint16_t aKey, int aIndex, uint8_t *aValue,
+                              uint16_t *aValueLength)
+{
+    return kThreadError_None;
+}
+
+ThreadError otPlatSettingsSet(otInstance *aInstance, uint16_t aKey, const uint8_t *aValue, uint16_t aValueLength) 
+{
+    return kThreadError_None;
+}
+
+ThreadError otPlatSettingsAdd(otInstance *aInstance, uint16_t aKey, const uint8_t *aValue, uint16_t aValueLength) 
+{
+    return kThreadError_None;
+}
+
+
+ThreadError otPlatSettingsDelete(otInstance *aInstance, uint16_t aKey, int aIndex) 
+{
+    return kThreadError_None;
+}
+
+
 void *_openthread_event_loop(void *arg)
 {
     _pid = thread_getpid();
-
-    /* enable OpenThread UART */
-    otPlatUartEnable();
-
-    /* init OpenThread */
-    otInit();
 
     msg_init_queue(_queue, OPENTHREAD_QUEUE_LEN);
     netdev2_t *dev;
     msg_t msg;
 
+    /* init OpenThread */
+    otInstance* sInstance = otInstanceInit();
+    assert(sInstance);
+
 #ifdef MODULE_OPENTHREAD_CLI
     otCliUartInit();
 #else
-    /* equivalent to "start" command of OpenThread CLI */
-    otEnable();
-
 #ifdef MODULE_OPENTHREAD_NCP
     otNcpInit();
 #endif
-    /* It's necessary to call this after otEnable. Otherwise will freeze */
-    otProcessNextTasklet();
 #endif
+    /* enable OpenThread UART */
+    otPlatUartEnable();
+
 
     while (1) {
         /* Process OpenThread tasklets */
         begin_mutex();
-        otProcessNextTasklet();
+		otTaskletsProcess(sInstance);
         end_mutex();
 
         msg_receive(&msg);
@@ -82,7 +111,7 @@ void *_openthread_event_loop(void *arg)
                 /* Tell OpenThread a time event was received */
 				printf("Timer fired\n");
                 begin_mutex();
-                otPlatAlarmFired();
+                otPlatAlarmFired(sInstance);
                 end_mutex();
                 break;
             case OPENTHREAD_NETDEV2_MSG_TYPE_EVENT:

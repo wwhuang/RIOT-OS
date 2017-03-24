@@ -28,15 +28,14 @@
 #define ENABLE_DEBUG (0)
 #include "debug.h"
 
-#include "platform/alarm.h"
-#include "platform/uart.h"
+#include "openthread/platform/alarm.h"
+#include "openthread/platform/uart.h"
 
 
-#include <cli/cli-uart.h>
 #include "xtimer.h"
 #include "random.h"
 
-#include "openthread.h"
+#include "openthread/openthread.h"
 #include "mutex.h"
 #include "ot.h"
 

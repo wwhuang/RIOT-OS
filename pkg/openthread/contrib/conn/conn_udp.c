@@ -13,10 +13,10 @@
  * @author  José Ignacio Alamos <jialamos@uc.cl>
  */
 
+#include "stdio.h"
 #include "net/conn/udp.h"
 #include "openthread/conn.h"
-#include "stdio.h"
-#include <openthread.h>
+#include <openthread/openthread.h>
 #include "string.h"
 #include <net/ipv6/addr.h>
 #include "ot.h"
@@ -43,14 +43,14 @@ void HandleUdpReceived(void *aContext, otMessage aMessage, const otMessageInfo *
 
 int conn_udp_create(conn_udp_t *conn, const void *addr, size_t addr_len, int family, uint16_t port)
 {
-    DEBUG("openthread: conn_udp_create\n");
+/*    DEBUG("openthread: conn_udp_create\n");
     memcpy(&sockaddr.mAddress.mFields, addr, addr_len);
     sockaddr.mPort = port;
 
     begin_mutex();
-    otOpenUdpSocket(&conn->mSocket, &HandleUdpReceived, conn);
-    otBindUdpSocket(&conn->mSocket, &sockaddr);
-    end_mutex();
+    otOpenUdp(&conn->mSocket, &HandleUdpReceived, conn);
+    otBindUdp(&conn->mSocket, &sockaddr);
+    end_mutex();*/
     return 0;
 }
 
@@ -58,7 +58,7 @@ int conn_udp_sendto(const void *data, size_t len, const void *src, size_t src_le
                     const void *dst, size_t dst_len, int family, uint16_t sport,
                     uint16_t dport)
 {
-    DEBUG("openthread: conn_udp_sendto\n");
+ /*   DEBUG("openthread: conn_udp_sendto\n");
     if (dst_len != sizeof(ipv6_addr_t) || (src != NULL && src_len != sizeof(ipv6_addr_t))) {
         return -EINVAL;
     }
@@ -89,16 +89,16 @@ int conn_udp_sendto(const void *data, size_t len, const void *src, size_t src_le
     //Send UDP packet through OT
     begin_mutex();
     otSendUdp(&mSocket, message, &mPeer);
-    end_mutex();
+    end_mutex();*/
     return 0;
 }
 
 void conn_udp_close(conn_udp_t *conn)
 {
-    DEBUG("openthread: conn_udp_close\n");
+/*    DEBUG("openthread: conn_udp_close\n");
     begin_mutex();
     otCloseUdpSocket(&conn->mSocket);
-    end_mutex();
+    end_mutex();*/
 }
 
 int conn_udp_getlocaladdr(conn_udp_t *conn, void *addr, uint16_t *port)
@@ -111,7 +111,7 @@ int conn_udp_getlocaladdr(conn_udp_t *conn, void *addr, uint16_t *port)
 
 int conn_udp_recvfrom(conn_udp_t *conn, void *data, size_t max_len, void *addr, size_t *addr_len, uint16_t *port)
 {
-    DEBUG("openthread: conn_udp_recv_from\n");
+/*    DEBUG("openthread: conn_udp_recv_from\n");
     msg_t msg;
     conn->receiver_pid = thread_getpid();
     conn_udp_msg_t *cudp;
@@ -131,7 +131,8 @@ int conn_udp_recvfrom(conn_udp_t *conn, void *data, size_t max_len, void *addr, 
             break;
         }
     }
-    return msg_length;
+    return msg_length;*/
+	return 0;
 }
 
 ipv6_addr_t *conn_find_best_source(const ipv6_addr_t *dst)

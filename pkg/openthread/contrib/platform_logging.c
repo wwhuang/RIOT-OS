@@ -11,6 +11,7 @@
  *
  * @file
  * @author  José Ignacio Alamos <jialamos@uc.cl>
+ * @author  Hyung-Sin Kim <hs.kim@berkeley.edu>
  */
 
 #include <ctype.h>
@@ -22,7 +23,7 @@
 #include <sys/time.h>
 #include <time.h>
 
-#include <platform/logging.h>
+#include <openthread/platform/logging.h>
 
 /* adapted from OpenThread posix example:
  * See: https://github.com/openthread/openthread/blob/master/examples/platforms/posix/logging.c */
@@ -84,7 +85,24 @@ void otPlatLog(otLogLevel aLogLevel, otLogRegion aLogRegion, const char *aFormat
 
         case kLogRegionMem:
             fprintf(stderr, "MEM  ");
+            break;  
+
+		case kLogRegionPlatform:
+            fprintf(stderr, "Plat ");
             break;
+
+		case kLogRegionNcp:
+            fprintf(stderr, "NCP  ");
+            break;
+
+		case kLogRegionMeshCoP:
+            fprintf(stderr, "MESH ");
+            break;
+
+   		case kLogRegionNetDiag:
+            fprintf(stderr, "NETDi");
+            break;
+
     }
 
     va_start(args, aFormat);
