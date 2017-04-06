@@ -41,7 +41,6 @@ extern "C" {
 #define OPENTHREAD_MSG_TYPE_RECV (0x2238)           /**< event for frame reception */
 
 
-//otInstance *sInstance;
 /**
  * @brief   bootstrap OpenThread
  *
@@ -56,6 +55,8 @@ typedef struct {
     size_t len; /**< length of the message */
 } serial_msg_t;
 
+
+//otInstance *aInstance;
 /**
  * @brief   gets packet from driver and tells OpenThread about the reception.
  *
@@ -68,7 +69,7 @@ void recv_pkt(netdev2_t *dev);
  *
  * @internal
  */
-void send_pkt(netdev2_t *dev, netdev2_event_t event);
+void sent_pkt(netdev2_t *dev, netdev2_event_t event);
 
 
 /**

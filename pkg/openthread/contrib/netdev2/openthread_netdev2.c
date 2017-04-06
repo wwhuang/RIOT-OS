@@ -15,7 +15,6 @@
 
 #include "msg.h"
 #include "ot.h"
-//#include "openthread/openthread.h"
 #include "openthread/platform/alarm.h"
 #include "openthread/platform/uart.h"
 #include "net/netdev2.h"
@@ -37,21 +36,19 @@ static msg_t _queue[OPENTHREAD_QUEUE_LEN];
 static kernel_pid_t _pid;
 
 
-/* OpenThread will call this when switching state from empty tasklet to non-empty tasklet. */
-void otSignalTaskletPending(void)
-{
-    //Unused
-}
-
+/* OpenThread calls this function when the tasklet queue transitions from empty to non-empty. */
 void otTaskletsSignalPending(otInstance *aInstance)
 {
     (void)aInstance;
 }
 
 
+/* Performs any initialization for the settings subsystem, if necessary. */
 void otPlatSettingsInit(otInstance *aInstance) 
 {
 }
+
+
 
 ThreadError otPlatSettingsGet(otInstance *aInstance, uint16_t aKey, int aIndex, uint8_t *aValue,
                               uint16_t *aValueLength)
@@ -59,17 +56,26 @@ ThreadError otPlatSettingsGet(otInstance *aInstance, uint16_t aKey, int aIndex, 
     return kThreadError_None;
 }
 
+
+/** This function sets or replaces the value of a setting identified by aKey. 
+ *  If there was more than one value previously associated with aKey, 
+ *  then they are all deleted and replaced with this single entry. */
 ThreadError otPlatSettingsSet(otInstance *aInstance, uint16_t aKey, const uint8_t *aValue, uint16_t aValueLength) 
 {
     return kThreadError_None;
 }
 
+
+/** This function adds the value to a setting identified by aKey, 
+ * without replacing any existing values. */
 ThreadError otPlatSettingsAdd(otInstance *aInstance, uint16_t aKey, const uint8_t *aValue, uint16_t aValueLength) 
 {
     return kThreadError_None;
 }
 
 
+/** This function deletes a specific value from the setting identified 
+ *  by aKey from the settings store. */
 ThreadError otPlatSettingsDelete(otInstance *aInstance, uint16_t aKey, int aIndex) 
 {
     return kThreadError_None;
@@ -79,9 +85,9 @@ ThreadError otPlatSettingsDelete(otInstance *aInstance, uint16_t aKey, int aInde
 void *_openthread_event_loop(void *arg)
 {
     _pid = thread_getpid();
+    netdev2_t *dev = (netdev2_t*) arg;
 
     msg_init_queue(_queue, OPENTHREAD_QUEUE_LEN);
-    netdev2_t *dev;
     msg_t msg;
 
     /* init OpenThread */
@@ -127,7 +133,6 @@ void *_openthread_event_loop(void *arg)
                 end_mutex();
                 break;
 #endif
-
         }
     }
 
@@ -158,7 +163,7 @@ void _event_cb(netdev2_t *dev, netdev2_event_t event)
             case NETDEV2_EVENT_TX_NOACK:
             case NETDEV2_EVENT_TX_MEDIUM_BUSY:
                 DEBUG("openthread_netdev2: Transmission of a pcket\n");
-                send_pkt(dev, event);
+                sent_pkt(dev, event);
                 break;
             default:
                 break;

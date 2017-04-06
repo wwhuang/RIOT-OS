@@ -41,12 +41,14 @@ void otPlatAlarmStartAt(otInstance *aInstance, uint32_t aT0, uint32_t aDt)
     }
 }
 
+
 /* OpenThread will call this to stop alarms */
 void otPlatAlarmStop(otInstance *aInstance)
 {
     DEBUG("openthread: otPlatAlarmStop\n");
     xtimer_remove(&ot_timer);
 }
+
 
 /* OpenThread will call this for getting running time in millisecs */
 uint32_t otPlatAlarmGetNow(void)

@@ -35,7 +35,6 @@
 #include "xtimer.h"
 #include "random.h"
 
-#include "openthread/openthread.h"
 #include "mutex.h"
 #include "ot.h"
 
