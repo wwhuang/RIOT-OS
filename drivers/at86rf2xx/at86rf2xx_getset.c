@@ -49,6 +49,7 @@ static const uint8_t dbm_to_tx_pow_915[] = {0x1d, 0x1c, 0x1b, 0x1a, 0x19, 0x17,
                                             0x04, 0x03, 0x02, 0x01, 0x00, 0x86,
                                             0x40, 0x84, 0x83, 0x82, 0x80, 0xc1,
                                             0xc0};
+
 static int16_t _tx_pow_to_dbm_212b(uint8_t channel, uint8_t page, uint8_t reg) {
     const uint8_t *dbm_to_tx_pow;
     size_t nelem;
@@ -92,6 +93,9 @@ static const uint8_t dbm_to_tx_pow[] = {0x0f, 0x0f, 0x0f, 0x0e, 0x0e, 0x0e,
                                         0x0b, 0x0a, 0x09, 0x08, 0x07, 0x06,
                                         0x05, 0x03, 0x00};
 #endif
+
+/* Radio-on indicator for CPU LPM */
+static bool radio_on = false;
 
 uint16_t at86rf2xx_get_addr_short(at86rf2xx_t *dev)
 {
@@ -518,12 +522,17 @@ void at86rf2xx_set_state(at86rf2xx_t *dev, uint8_t state)
         gpio_set(dev->params.sleep_pin);
         dev->state = state;
 		/* Allow CPU to go to the full sleep mode */
-		pm_unblock(PM_NUM_MODES-1);	
+		if (radio_on) {		
+			radio_on = false;
+			pm_unblock(PM_NUM_MODES-1);	
+		}
     } else {
         _set_state(dev, state, state);
 		/* Prevent CPU from going to the full sleep mode */
-		if (old_state == AT86RF2XX_STATE_SLEEP)
+		if (!radio_on) {
+			radio_on = true;
 			pm_block(PM_NUM_MODES-1);	
+		}
     }
 
     DEBUG("(%2x,%2x,%2x)\n", at86rf2xx_get_status(dev), at86rf2xx_reg_read(dev, AT86RF2XX_REG__TRX_STATUS)

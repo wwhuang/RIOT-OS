@@ -24,6 +24,7 @@
  * @author      Daniel Krebs <github@daniel-krebs.net>
  * @author      Kévin Roussel <Kevin.Roussel@inria.fr>
  * @author      Joakim Nohlgård <joakim.nohlgard@eistec.se>
+ * @author      Hyung-Sin Kim <hs.kim@berkeley.edu>
  */
 
 #ifndef AT86RF2XX_H
