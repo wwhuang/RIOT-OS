@@ -95,7 +95,7 @@ extern "C" {
 #ifndef LEAF_NODE
 #define LEAF_NODE (1) /* Duty-cycling node */
 #endif
-#define AUTO_CSMA_EN               (0)
+#define AUTO_CSMA_EN               (1)
 /** @} */
 
 /**

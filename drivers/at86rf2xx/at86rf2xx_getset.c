@@ -345,8 +345,10 @@ void at86rf2xx_set_option(at86rf2xx_t *dev, uint16_t option, bool state)
                       "(4 retries, min BE: 3 max BE: 5)\n");
                 /* Initialize CSMA seed with hardware address */
                 at86rf2xx_set_csma_seed(dev, dev->netdev.long_addr);
-                at86rf2xx_set_csma_max_retries(dev, 4);
-                at86rf2xx_set_csma_backoff_exp(dev, 3, 5);
+                //at86rf2xx_set_csma_max_retries(dev, 4);
+                //at86rf2xx_set_csma_backoff_exp(dev, 3, 5);
+                at86rf2xx_set_csma_max_retries(dev, 0);
+                at86rf2xx_set_csma_backoff_exp(dev, 2, 2);
                 break;
             case AT86RF2XX_OPT_PROMISCUOUS:
                 DEBUG("[at86rf2xx] opt: enabling PROMISCUOUS mode\n");
@@ -522,8 +524,7 @@ void at86rf2xx_set_state(at86rf2xx_t *dev, uint8_t state)
 			pm_block(PM_NUM_MODES-1);	
     }
 
-    printf("(%2x,%2x,%2x)\n", at86rf2xx_get_status(dev), at86rf2xx_reg_read(dev, AT86RF2XX_REG__TRX_STATUS)
-            & AT86RF2XX_TRX_STATUS_MASK__TRX_STATUS, state);
+    //printf("(%2x,%2x,%2x)\n", at86rf2xx_get_status(dev), at86rf2xx_reg_read(dev, AT86RF2XX_REG__TRX_STATUS) & AT86RF2XX_TRX_STATUS_MASK__TRX_STATUS, state);
 }
 
 void at86rf2xx_reset_state_machine(at86rf2xx_t *dev)

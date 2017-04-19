@@ -189,6 +189,7 @@ static int _send(gnrc_netdev2_t *gnrc_netdev2, gnrc_pktsnip_t *pkt)
     /* prepare destination address */
     if (netif_hdr->flags & /* If any of these flags is set so this is correct */
         (GNRC_NETIF_HDR_FLAGS_BROADCAST | GNRC_NETIF_HDR_FLAGS_MULTICAST)) {
+		flags &= ~IEEE802154_FCF_ACK_REQ;
         dst = ieee802154_addr_bcast;
         dst_len = IEEE802154_ADDR_BCAST_LEN;
     }

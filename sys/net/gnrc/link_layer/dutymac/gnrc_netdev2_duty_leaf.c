@@ -40,7 +40,7 @@
 
 #if LEAF_NODE
 
-#define ENABLE_DEBUG    (1)
+#define ENABLE_DEBUG    (0)
 #include "debug.h"
 
 #if defined(MODULE_OD) && ENABLE_DEBUG
@@ -471,7 +471,7 @@ static void *_gnrc_netdev2_duty_thread(void *args)
 						dutycycle_state = DUTY_SLEEP;
 						sleepstate = NETOPT_STATE_SLEEP;
 						xtimer_set(&timer, random_uint32_range(0, DUTYCYCLE_SLEEP_INTERVAL));
-						DEBUG("gnrc_netdev2: INIT DUTYCYCLE\n");											
+						DEBUG("gnrc_netdev2: INIT DUTYCYCL\n");											
 					} else {
 						/* Dutycycle end triggered by application layer */
 						dutycycle_state = DUTY_INIT;

@@ -116,6 +116,8 @@ static int _send(netdev2_t *netdev, const struct iovec *vector, unsigned count)
         len = at86rf2xx_tx_load(dev, ptr->iov_base, ptr->iov_len, len);
     }
 
+	printf("len %u\n", len);
+
     /* send data out directly if pre-loading id disabled */
     if (!(dev->netdev.flags & AT86RF2XX_OPT_PRELOADING)) {
         at86rf2xx_tx_exec(dev);

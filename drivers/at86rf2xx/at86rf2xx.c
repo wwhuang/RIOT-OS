@@ -234,7 +234,6 @@ void at86rf2xx_tx_exec(at86rf2xx_t *dev)
     }
 #endif
 #endif
-	printf("Send a packet\n");
 
     /* trigger sending of pre-loaded frame */
     at86rf2xx_reg_write(dev, AT86RF2XX_REG__TRX_STATE,

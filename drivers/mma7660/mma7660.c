@@ -125,7 +125,7 @@ int mma7660_config_pd(mma7660_t *dev, uint8_t pd) {
 int mma7660_init(mma7660_t *dev, const mma7660_params_t *params) {
     /* write device descriptor */
     dev->i2c = params->i2c;
-    dev->addr = params->addr;
+    dev->addr = params->addr;gre
 
     i2c_acquire(dev->i2c);
     /* initialize the I2C bus */
