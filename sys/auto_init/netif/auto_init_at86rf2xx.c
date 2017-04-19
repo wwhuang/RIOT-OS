@@ -58,7 +58,7 @@ void auto_init_at86rf2xx(void)
             LOG_ERROR("[auto_init_netif] error initializing at86rf2xx radio #%u\n", i);
         }
         else {
-#if DUTYCYCLE_EN
+#if MODULE_GNRC_DUTYMAC
              gnrc_netdev2_dutymac_init(_at86rf2xx_stacks[i],
                                     AT86RF2XX_MAC_STACKSIZE,
                                     AT86RF2XX_MAC_PRIO,

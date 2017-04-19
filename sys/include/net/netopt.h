@@ -250,11 +250,6 @@ typedef enum {
      */
     NETOPT_RF_TESTMODE,
 
-     /**
-      * @brief   en/disable radio duty-cycling
-      */
-    NETOPT_DUTYCYCLE,
-
     /* add more options if needed */
 
     /**

@@ -49,15 +49,8 @@
 
 #define NETDEV2_NETAPI_MSG_QUEUE_SIZE 8
 #define NETDEV2_PKT_QUEUE_SIZE 4
-#define DUTYCYCLE_WAKEUP_INTERVAL  6000UL    /* Don't change it w/o particular reasons */
-
 
 static void _pass_on_packet(gnrc_pktsnip_t *pkt);
-
-/** 1) For a leaf node (battery-powered), 'dutycycling' is set to NETOPT_ENABLE by application
- *  2) For a router (wall-powered), 'dutycycling' remains to NETOPT_DISABLE
- */
-netopt_enable_t   dutycycling     = NETOPT_DISABLE;
 
 /*  Dutycycle state (INIT, SLEEP, TXBEACON, TXDATA, and LISTEN) */
 typedef enum {
@@ -70,10 +63,7 @@ typedef enum {
 } dutycycle_state_t;
 dutycycle_state_t dutycycle_state = DUTY_INIT;
 
-/**	1) For a leaf node, 'timer' is used for wake-up scheduling
- *  2) For a router, 'timer' is used for broadcasting;
- *     a router does not discard a broadcasting packet during a sleep interval
- */
+/* timer for wake-up scheduling */
 xtimer_t timer;
 uint8_t pending_num = 0;
 
@@ -355,6 +345,20 @@ static void *_gnrc_netdev2_duty_thread(void *args)
     /* initialize low-level driver */
     dev->driver->init(dev);
 
+	/* use short address for duty-cycling */
+	dev->driver->set(dev, NETOPT_SRC_LEN, &src_len, sizeof(src_len));
+
+	/* start duty-cycle */
+	if (DUTYCYCLE_SLEEP_INTERVAL) {
+		/* Duty-cycle for receiving packets (listen-after-send) */
+		dutycycle_state = DUTY_LISTEN;
+		sleepstate = NETOPT_STATE_IDLE;
+		xtimer_set(&timer, random_uint32_range(0, 1000));
+	} else {
+		sleepstate = NETOPT_STATE_SLEEP;
+	}
+	dev->driver->set(dev, NETOPT_STATE, &sleepstate, sizeof(netopt_state_t));
+	
     /* start the event loop */
     while (1) {
         DEBUG("gnrc_netdev2: waiting for incoming messages\n");
@@ -365,10 +369,9 @@ static void *_gnrc_netdev2_duty_thread(void *args)
 			case GNRC_NETDEV2_DUTYCYCLE_MSG_TYPE_EVENT:
 				/* radio dutycycling control */
                 DEBUG("gnrc_netdev2: GNRC_NETDEV_DUTYCYCLE_MSG_TYPE_EVENT received\n");
-				if (dutycycling == NETOPT_ENABLE) {
+				if (DUTYCYCLE_SLEEP_INTERVAL) {
 					switch(dutycycle_state) {
 						case DUTY_INIT: /* Start dutycycling from sleep state */
-							dutycycling = NETOPT_ENABLE;
 							dutycycle_state = DUTY_SLEEP;
 							sleepstate = NETOPT_STATE_SLEEP;
 							dev->driver->set(dev, NETOPT_STATE, &sleepstate, sizeof(netopt_state_t));	
@@ -463,25 +466,6 @@ static void *_gnrc_netdev2_duty_thread(void *args)
                 opt = msg.content.ptr;
                 DEBUG("gnrc_netdev2: GNRC_NETAPI_MSG_TYPE_SET received. opt=%s\n",
                         netopt2str(opt->opt));
-				if (opt->opt == NETOPT_DUTYCYCLE) {
-					dutycycling = *(netopt_enable_t*) opt->data;
-					xtimer_remove(&timer);
-					if (dutycycling == NETOPT_ENABLE) {
-						/* Dutycycle start triggered by application layer */
-						dutycycle_state = DUTY_SLEEP;
-						sleepstate = NETOPT_STATE_SLEEP;
-						xtimer_set(&timer, random_uint32_range(0, DUTYCYCLE_SLEEP_INTERVAL));
-						DEBUG("gnrc_netdev2: INIT DUTYCYCLE\n");											
-					} else {
-						/* Dutycycle end triggered by application layer */
-						dutycycle_state = DUTY_INIT;
-						sleepstate = NETOPT_STATE_SLEEP;
-					}
-					/* We use short address for duty-cycling */
-					dev->driver->set(dev, NETOPT_SRC_LEN, &src_len, sizeof(src_len));
-					opt->opt = NETOPT_STATE;
-					opt->data = &sleepstate;
-				}
                 /* set option for device driver */
                 res = dev->driver->set(dev, opt->opt, opt->data, opt->data_len);
                 DEBUG("gnrc_netdev2: response of netdev->set: %i\n", res);

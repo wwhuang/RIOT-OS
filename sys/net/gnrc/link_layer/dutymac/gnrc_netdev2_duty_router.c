@@ -36,8 +36,7 @@
 
 #include "xtimer.h"
 
-#if LEAF_NODE
-#else
+#if !LEAF_NODE
 
 #define ENABLE_DEBUG    (0)
 #include "debug.h"
@@ -48,8 +47,8 @@
 
 #define NETDEV2_NETAPI_MSG_QUEUE_SIZE 8
 #define NETDEV2_PKT_QUEUE_SIZE 4
-
 #define NEIGHBOR_TABLE_SIZE 10
+
 typedef struct {
 	uint16_t addr;
 	uint16_t dutycycle;
@@ -62,9 +61,8 @@ uint8_t neighbor_num = 0;
 
 static void _pass_on_packet(gnrc_pktsnip_t *pkt);
 
-/**	1) For a leaf node, 'timer' is used for wake-up scheduling
- *  2) For a router, 'timer' is used for broadcasting;
- *     a router does not discard a broadcasting packet during a sleep interval
+/** timer for broadcasting;
+ *  a router does not discard a broadcasting packet during a sleep interval
  */
 xtimer_t timer;
 bool broadcasting = 0;

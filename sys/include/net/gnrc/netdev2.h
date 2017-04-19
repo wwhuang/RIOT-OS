@@ -223,7 +223,20 @@ static inline void gnrc_netdev2_set_tx_feedback(gnrc_netdev2_t *dev,
 }
 #endif
 
-#if DUTYCYCLE_EN
+#if MODULE_GNRC_DUTYMAC
+
+#ifndef DUTYCYCLE_SLEEP_INTERVAL
+#define DUTYCYCLE_SLEEP_INTERVAL 2000000UL /* 1) When it is ZERO, a leaf node does not send beacons
+                        						(i.e., extremely low duty-cycle,
+                                                        but downlink transmission is disabled)
+                                              2) Router and leaf node should have same sleep interval.
+             								   Router does not sleep                       												   but uses the value for downlink transmissions */
+#endif
+
+#ifndef DUTYCYCLE_WAKEUP_INTERVAL
+#define DUTYCYCLE_WAKEUP_INTERVAL  6000UL    /* Don't change it w/o particular reasons */
+#endif
+
 /**
   * @brief Initialize GNRC netdev2 handler thread for dutycycling
   *

@@ -576,8 +576,9 @@ static void _isr(netdev2_t *netdev)
              * there are none */
             assert(dev->pending_tx != 0);
             if ((--dev->pending_tx) == 0) {
-#if DUTYCYCLE_EN
+#if MODULE_GNRC_DUTYMAC
 #if LEAF_NODE
+				/* Wake up for a while when receiving an ACK with pending bit */
 				if (trac_status == AT86RF2XX_TRX_STATE__TRAC_SUCCESS_DATA_PENDING) {
 	                dev->idle_state = AT86RF2XX_STATE_RX_AACK_ON;		
 				}

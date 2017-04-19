@@ -79,22 +79,6 @@ extern "C" {
 
 #define PM_BLOCKER_INITIAL { .val_u32=0x00000000 }
 
-/**
- * @name Network configuration
- * @{
- */
-#ifndef DUTYCYCLE_EN
-#define DUTYCYCLE_EN               (1)
-#endif
-
-#ifndef DUTYCYCLE_SLEEP_INTERVAL
-#define DUTYCYCLE_SLEEP_INTERVAL   2000000UL /* 1) When it is ZERO, a leaf node does not send beacons
-                        												(i.e., extremely low duty-cycle,
-                                                        but downlink transmission is disabled)
-                                                2) Router and leaf node should have same sleep interval.
-                        												   Router does not sleep
-                        												   but uses the value for downlink transmissions */
-#endif
 
 #ifndef LEAF_NODE
 #define LEAF_NODE (1) /* Duty-cycling node */
