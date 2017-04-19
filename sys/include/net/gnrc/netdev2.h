@@ -225,6 +225,10 @@ static inline void gnrc_netdev2_set_tx_feedback(gnrc_netdev2_t *dev,
 
 #if MODULE_GNRC_DUTYMAC
 
+#ifndef LEAF_NODE
+#define LEAF_NODE (1) /* 0: Always-on router, 1: Duty-cycling leaf node */
+#endif
+
 #ifndef DUTYCYCLE_SLEEP_INTERVAL
 #define DUTYCYCLE_SLEEP_INTERVAL 2000000UL /* 1) When it is ZERO, a leaf node does not send beacons
                         						(i.e., extremely low duty-cycle,
