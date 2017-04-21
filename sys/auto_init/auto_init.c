@@ -298,9 +298,29 @@ void auto_init(void)
     extern void auto_init_tsl2561(void);
     auto_init_tsl2561();
 #endif
+#ifdef MODULE_APDS9007
+    extern void auto_init_apds9007(void);
+    auto_init_apds9007();
+#endif
 #ifdef MODULE_HDC1000
     extern void auto_init_hdc1000(void);
     auto_init_hdc1000();
+#endif
+#ifdef MODULE_FXOS8700
+    extern void auto_init_fxos8700(void);
+    auto_init_fxos8700();
+#endif
+#ifdef MODULE_TMP006
+    extern void auto_init_tmp006(void);
+    auto_init_tmp006();
+#endif
+#ifdef MODULE_EKMB1101111
+    extern void auto_init_ekmb1101111(void);
+    auto_init_ekmb1101111();
+#endif
+#ifdef MODULE_PUSH_BUTTON
+    extern void auto_init_push_button(void);
+    auto_init_push_button();
 #endif
 #ifdef MODULE_DHT
     extern void auto_init_dht(void);

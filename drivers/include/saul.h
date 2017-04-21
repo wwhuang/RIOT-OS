@@ -87,6 +87,8 @@ enum {
     SAUL_SENSE_COLOR    = 0x88,     /**< sensor: (light) color */
     SAUL_SENSE_PRESS    = 0x89,     /**< sensor: pressure */
     SAUL_SENSE_ANALOG   = 0x8a,     /**< sensor: raw analog value */
+    SAUL_SENSE_AMBTEMP  = 0x8b,     /**< sensor: ambient temperature */
+    SAUL_SENSE_OCCUP    = 0x8c,     /**< sensor: occupancy */
     SAUL_CLASS_ANY      = 0xff      /**< any device - wildcard */
     /* extend this list as needed... */
 };

@@ -133,6 +133,16 @@ int saul_reg_read(saul_reg_t *dev, phydat_t *res);
  */
 int saul_reg_write(saul_reg_t *dev, phydat_t *data);
 
+
+/**
+ * @brief   Activate the given device
+ *
+ * @param[in] dev       device to activate to
+ *
+ * @return      -ENODEV if given device is invalid
+ */
+int saul_reg_active(saul_reg_t *dev);
+
 #ifdef __cplusplus
 }
 #endif
