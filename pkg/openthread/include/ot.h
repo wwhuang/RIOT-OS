@@ -28,24 +28,18 @@
 extern "C" {
 #endif
 
-#include "openthread/openthread.h"
 #include "net/netopt.h"
 #include "net/ieee802154.h"
 #include "net/ethernet.h"
-#include "net/netdev2.h"
+#include "net/gnrc/netdev2.h"
 #include "thread.h"
+#include "openthread/types.h"
 
 #define OPENTHREAD_XTIMER_MSG_TYPE_EVENT (0x2235)   /**< xtimer message receiver event*/
-#define OPENTHREAD_NETDEV2_MSG_TYPE_EVENT (0x2236)  /**< message received from driver */
+#define OPENTHREAD_NETDEV_MSG_TYPE_EVENT (0x2236)  /**< message received from driver */
 #define OPENTHREAD_SERIAL_MSG_TYPE_EVENT (0x2237)   /**< event indicating a serial (UART) message was sent to OpenThread */
 #define OPENTHREAD_MSG_TYPE_RECV (0x2238)           /**< event for frame reception */
 
-
-/**
- * @brief   bootstrap OpenThread
- *
- */
-void openthread_bootstrap(void);
 /**
  *  * @brief   Struct containing a serial message
  *
@@ -55,22 +49,25 @@ typedef struct {
     size_t len; /**< length of the message */
 } serial_msg_t;
 
-
-//otInstance *aInstance;
 /**
  * @brief   gets packet from driver and tells OpenThread about the reception.
  *
  * @internal
  */
-void recv_pkt(netdev2_t *dev);
+void recv_pkt(otInstance *aInstance, netdev2_t *dev);
 
 /**
  * @brief   Inform OpenThread when tx is finished
  *
  * @internal
  */
-void sent_pkt(netdev2_t *dev, netdev2_event_t event);
+void send_pkt(otInstance *aInstance, netdev2_t *dev, netdev2_event_t event);
 
+/**
+ * @brief   bootstrap OpenThread
+ *
+ */
+void openthread_bootstrap(void);
 
 /**
  * @brief   init OpenThread radio
@@ -83,7 +80,7 @@ void openthread_radio_init(netdev2_t *dev, uint8_t *tb, uint8_t *rb);
  * @brief   Starts OpenThread thread.
  *
  */
-int openthread_netdev2_init(char *stack, int stacksize, char priority, const char *name, netdev2_t *netdev);
+int openthread_netdev_init(char *stack, int stacksize, char priority, const char *name, netdev2_t *netdev);
 
 /**
  * @brief   get PID of OpenThread thread.

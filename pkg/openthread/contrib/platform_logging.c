@@ -11,7 +11,6 @@
  *
  * @file
  * @author  José Ignacio Alamos <jialamos@uc.cl>
- * @author  Hyung-Sin Kim <hs.kim@berkeley.edu>
  */
 
 #include <ctype.h>
@@ -31,7 +30,7 @@ void otPlatLog(otLogLevel aLogLevel, otLogRegion aLogRegion, const char *aFormat
 {
     va_list args;
 
-	printf("fopen\n");
+
     switch (aLogLevel) {
         case kLogLevelNone:
             fprintf(stderr, "NONE ");
@@ -61,7 +60,7 @@ void otPlatLog(otLogLevel aLogLevel, otLogRegion aLogRegion, const char *aFormat
 
         case kLogRegionMle:
             fprintf(stderr, "MLE  ");
-            break;
+              break;
 
         case kLogRegionArp:
             fprintf(stderr, "ARP  ");
@@ -85,24 +84,9 @@ void otPlatLog(otLogLevel aLogLevel, otLogRegion aLogRegion, const char *aFormat
 
         case kLogRegionMem:
             fprintf(stderr, "MEM  ");
-            break;  
-
-		case kLogRegionPlatform:
-            fprintf(stderr, "Plat ");
             break;
-
-		case kLogRegionNcp:
-            fprintf(stderr, "NCP  ");
+        default:
             break;
-
-		case kLogRegionMeshCoP:
-            fprintf(stderr, "MESH ");
-            break;
-
-   		case kLogRegionNetDiag:
-            fprintf(stderr, "NETDi");
-            break;
-
     }
 
     va_start(args, aFormat);

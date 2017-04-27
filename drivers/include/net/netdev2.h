@@ -74,8 +74,8 @@ typedef enum {
     NETDEV2_EVENT_RX_STARTED,       /**< started to receive a packet */
     NETDEV2_EVENT_RX_COMPLETE,      /**< finished receiving a packet */
     NETDEV2_EVENT_TX_STARTED,       /**< started to transfer a packet */
-    NETDEV2_EVENT_TX_COMPLETE_DATA_PENDING, /**< Rx ACK with frame pending bit */
     NETDEV2_EVENT_TX_COMPLETE,      /**< finished transferring packet */
+    NETDEV2_EVENT_TX_COMPLETE_DATA_PENDING, /**< Rx ACK with frame pending bit */
     NETDEV2_EVENT_TX_NOACK,         /**< ACK requested but not received */
     NETDEV2_EVENT_TX_MEDIUM_BUSY,   /**< couldn't transfer packet */
     NETDEV2_EVENT_LINK_UP,          /**< link established */

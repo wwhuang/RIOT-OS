@@ -17,6 +17,7 @@
 #include "xtimer.h"
 #include "msg.h"
 #include "thread.h"
+
 #include <openthread/platform/alarm.h>
 #include "ot.h"
 
@@ -41,14 +42,12 @@ void otPlatAlarmStartAt(otInstance *aInstance, uint32_t aT0, uint32_t aDt)
     }
 }
 
-
 /* OpenThread will call this to stop alarms */
 void otPlatAlarmStop(otInstance *aInstance)
 {
     DEBUG("openthread: otPlatAlarmStop\n");
     xtimer_remove(&ot_timer);
 }
-
 
 /* OpenThread will call this for getting running time in millisecs */
 uint32_t otPlatAlarmGetNow(void)
@@ -58,5 +57,4 @@ uint32_t otPlatAlarmGetNow(void)
     DEBUG("openthread: otPlatAlarmGetNow: %i\n", (int) now);
     return now;
 }
-
 /** @} */

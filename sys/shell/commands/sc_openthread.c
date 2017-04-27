@@ -14,17 +14,17 @@
  * @brief       Shell commands for interacting with OpenThread
  *
  * @author      José Ignacio Alamos <jialamos@uc.cl>
- * @author      Hyung-Sin Kim <hs.kim@berkeley.edu>
  */
 
-//#include <ot.h>
+#include <openthread/openthread.h>
 #include <stdio.h>
 #include "byteorder.h"
 #include "net/ipv6/addr.h"
 
+#if 0
 int _openthread_state(int argc, char **argv)
 {
-/*    switch (otThreadGetDeviceRole(threadInstance)) {
+    switch (otGetDeviceRole()) {
         case kDeviceRoleDisabled:
             printf("disabled\n");
             break;
@@ -40,18 +40,16 @@ int _openthread_state(int argc, char **argv)
         case kDeviceRoleLeader:
             printf("leader\n");
             break;
-        case kDeviceRoleOffline:
-            printf("offline\n");
-            break;
-    }*/
+    }
     return 0;
 }
 
 int _openthread_ipaddr(int argc, char **argv)
 {
-/*    for (const otNetifAddress *addr = otIp6GetUnicastAddresses(threadInstance); addr; addr = addr->mNext) {
+    for (const otNetifAddress *addr = otGetUnicastAddresses(); addr; addr = addr->mNext) {
         ipv6_addr_print((ipv6_addr_t *) &addr->mAddress.mFields);
         printf("\n");
-    }*/
+    }
     return 0;
 }
+#endif
