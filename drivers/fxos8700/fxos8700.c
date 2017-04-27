@@ -67,7 +67,7 @@ static int fxos8700_reset(fxos8700_t* dev)
 
 
 
-int fxos8700_init(fxos8700_t* dev, const fxos8700_params_t *params) //i2c_t i2c, uint8_t addr)
+int fxos8700_init(fxos8700_t* dev, const fxos8700_params_t *params) 
 {
     dev->p.i2c = params->i2c;
     int rv;
@@ -122,7 +122,6 @@ int fxos8700_init(fxos8700_t* dev, const fxos8700_params_t *params) //i2c_t i2c,
 }
 
 
-
 int fxos8700_set_active(fxos8700_t* dev)
 {
     uint8_t config = 0x01;
@@ -131,6 +130,7 @@ int fxos8700_set_active(fxos8700_t* dev)
     }
     return 0;
 }
+
 int fxos8700_set_idle(fxos8700_t* dev)
 {
     uint8_t config = 0x00;

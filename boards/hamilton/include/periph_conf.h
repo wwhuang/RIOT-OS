@@ -227,7 +227,7 @@ static const spi_conf_t spi_config[] = {
 #define HDC1000_PARAMS_BOARD    { .i2c  = I2C_0, \
                                   .addr = 0x40, \
                                   .res  = HDC1000_14BIT }
-#define HDC1000_CONVERSION_TIME 15000UL
+#define HDC1000_CONVERSION_TIME 150000UL
 
 #define FXOS8700_PARAMS_BOARD   { .i2c  = I2C_0, \
                                   .addr = 0x1e }
@@ -235,7 +235,7 @@ static const spi_conf_t spi_config[] = {
 #define TMP006_PARAMS_BOARD     { .i2c  = I2C_0, \
                                   .addr = 0x44, \
                                   .conv_rate  = TMP006_CONFIG_CR_AS2 }
-#define TMP006_CONVERSION_TIME  501000UL  
+#define TMP006_CONVERSION_TIME  550000UL  
 
 #define APDS9007_PARAMS_BOARD    { .gpio = GPIO_PIN(PA,28), \
 																	 .adc  = ADC_PIN_PA08, \
