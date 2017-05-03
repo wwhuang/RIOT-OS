@@ -56,7 +56,6 @@ void auto_init_apds9007(void)
         int res = apds9007_init(&apds9007_devs[i], &apds9007_params[i]);
         if (res != 0) {
             LOG_ERROR("[auto_init_saul] error initializing apds9007 #%u\n", i);
-						NVIC_SystemReset();
         }
         else {
             saul_entries[i].dev = &(apds9007_devs[i]);

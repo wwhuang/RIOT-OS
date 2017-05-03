@@ -28,7 +28,7 @@ static int read_ambtemp(void *dev, phydat_t *res)
     tmp006_t *d = (tmp006_t *)dev;
 		if (tmp006_read(d, &(res->val[0]))) {
 			/* Read failure */
-			res->val[0] = 0xFFFF;
+			return 0;
 		}
     memset(&(res->val[1]), 0, 2 * sizeof(int16_t));
     res->unit = UNIT_TEMP_C;

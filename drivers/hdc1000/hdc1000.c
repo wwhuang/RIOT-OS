@@ -17,6 +17,7 @@
  *
  * @author      Johann Fischer <j.fischer@phytec.de>
  * @author      Hauke Petersen <hauke.petersen@fu-berlin.de>
+ * @author      Hyung-Sin Kim <hs.kim@berkeley.edu>
  *
  * @}
  */
@@ -76,7 +77,7 @@ int hdc1000_init(hdc1000_t *dev, const hdc1000_params_t *params)
     return HDC1000_OK;
 }
 
-void hdc1000_trigger_conversion(hdc1000_t *dev)
+int hdc1000_trigger_conversion(hdc1000_t *dev)
 {
     assert(dev);
 
@@ -86,12 +87,15 @@ void hdc1000_trigger_conversion(hdc1000_t *dev)
      * to the address 0x00 (HDC1000_TEMPERATURE).
      * Conversion Time is 6.50ms for each value for 14 bit resolution.
      */
-    i2c_write_byte(dev->p.i2c, dev->p.addr, HDC1000_TEMPERATURE);
-
+		if (i2c_write_byte(dev->p.i2c, dev->p.addr, HDC1000_TEMPERATURE) != 1) {
+    	i2c_release(dev->p.i2c);
+			return -1;
+		}
     i2c_release(dev->p.i2c);
+		return 0;
 }
 
-void hdc1000_get_results(hdc1000_t *dev, int16_t *temp, int16_t *hum)
+int hdc1000_get_results(hdc1000_t *dev, int16_t *temp, int16_t *hum)
 {
     assert(dev);
 
@@ -100,9 +104,12 @@ void hdc1000_get_results(hdc1000_t *dev, int16_t *temp, int16_t *hum)
 
     /* first we read the RAW results from the device */
     i2c_acquire(dev->p.i2c);
-    i2c_read_bytes(dev->p.i2c, dev->p.addr, buf, 4);
-    i2c_release(dev->p.i2c);
-
+    if (i2c_read_bytes(dev->p.i2c, dev->p.addr, buf, 4) != 4) {
+    	i2c_release(dev->p.i2c);
+			return -1;
+		}
+   	i2c_release(dev->p.i2c);
+		
     /* and finally we convert the values to their physical representation */
     if (temp) {
         traw = ((uint16_t)buf[0] << 8) | buf[1];
@@ -112,11 +119,17 @@ void hdc1000_get_results(hdc1000_t *dev, int16_t *temp, int16_t *hum)
         hraw = ((uint16_t)buf[2] << 8) | buf[3];
         *hum  = (int16_t)(((int32_t)hraw * 10000) >> 16);
     }
+		return 0;
 }
 
-void hdc1000_read(hdc1000_t *dev, int16_t *temp, int16_t *hum)
+int hdc1000_read(hdc1000_t *dev, int16_t *temp, int16_t *hum)
 {
-    hdc1000_trigger_conversion(dev);
+    if (hdc1000_trigger_conversion(dev)) {
+			return -1;
+		}
     xtimer_usleep(HDC1000_CONVERSION_TIME);
-    hdc1000_get_results(dev, temp, hum);
+    if (hdc1000_get_results(dev, temp, hum)) {
+			return -2;
+		}
+		return 0;
 }

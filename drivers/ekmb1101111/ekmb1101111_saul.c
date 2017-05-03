@@ -26,7 +26,10 @@
 static int read_occup(void *dev, phydat_t *res)
 {
     ekmb1101111_t *d = (ekmb1101111_t *)dev;
-    ekmb1101111_read(d, &(res->val[0]));
+    if (ekmb1101111_read(d, &(res->val[0]))) {
+			/* Read failure */
+			return 0;
+		}
     memset(&(res->val[1]), 0, 2 * sizeof(int16_t));
     res->unit = UNIT_PERCENT;
     res->scale = -2;

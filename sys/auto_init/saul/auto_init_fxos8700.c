@@ -58,7 +58,6 @@ void auto_init_fxos8700(void)
         int res = fxos8700_init(&fxos8700_devs[i], &fxos8700_params[i]);
         if (res != 0) {
             LOG_ERROR("[auto_init_saul] error initializing fxos8700 #%u\n", i);
-						NVIC_SystemReset();
         }
         else {
             saul_entries[(i * 2)].dev = &(fxos8700_devs[i]);

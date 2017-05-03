@@ -121,6 +121,10 @@ int tmp006_init(tmp006_t *dev, const tmp006_params_t *params)//i2c_t i2c, uint8_
         return -4;
     }
     i2c_release(dev->p.i2c);
+
+    if (tmp006_set_standby(dev)) {
+        return -5;
+    }
     dev->initialized = true;
     return 0;
 }
@@ -277,10 +281,15 @@ void tmp006_convert(int16_t rawv, int16_t rawt,  float *tamb, float *tobj)
 int tmp006_read(tmp006_t *dev, int16_t *ambtemp) 
 {
 		uint8_t drdy;
-		int error;
-		tmp006_set_active(dev);
+		if (tmp006_set_active(dev)) {
+			return -1;
+		}
 		xtimer_usleep(TMP006_CONVERSION_TIME);
-		error = tmp006_get_results(dev, NULL, ambtemp, &drdy);
-		tmp006_set_standby(dev);	
-		return error;
+		if (tmp006_get_results(dev, NULL, ambtemp, &drdy)) {
+			return -2;
+		}
+		if (tmp006_set_standby(dev)) {
+			return -3;
+		}
+		return 0;
 }

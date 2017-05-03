@@ -26,7 +26,10 @@
 static int read(void *dev, phydat_t *res)
 {
     apds9007_t *d = (apds9007_t *)dev;
-    apds9007_read(d, &(res->val[0]));
+    if (apds9007_read(d, &(res->val[0]))) {
+			/* Read failure */
+			return 0;
+		}
     memset(&(res->val[1]), 0, 2 * sizeof(int16_t));
     res->unit = UNIT_LUX;
     res->scale = 0;

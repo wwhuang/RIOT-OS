@@ -57,7 +57,6 @@ void auto_init_tmp006(void)
         int res = tmp006_init(&tmp006_devs[i], &tmp006_params[i]);
         if (res != 0) {
             LOG_ERROR("[auto_init_saul] error initializing tmp006 #%u\n", i);
-  					NVIC_SystemReset();
         }
         else {
             saul_entries[i].dev = &(tmp006_devs[i]);

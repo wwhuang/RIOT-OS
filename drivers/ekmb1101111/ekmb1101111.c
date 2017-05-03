@@ -57,7 +57,9 @@ int ekmb1101111_init(ekmb1101111_t *dev, const ekmb1101111_params_t *params)
 		accum_up_time = 0;
 		pin_rise_time = 0;
     last_reset_time = xtimer_usec_from_ticks64(xtimer_now64());
-    gpio_init_int(params->gpio, GPIO_IN_PD, GPIO_BOTH, ekmb1101111_trigger, dev);
+    if (gpio_init_int(params->gpio, GPIO_IN_PD, GPIO_BOTH, ekmb1101111_trigger, dev)) {
+			return -1;
+		}
     return 0;
 }
 

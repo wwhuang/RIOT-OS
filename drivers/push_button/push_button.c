@@ -37,7 +37,9 @@ int push_button_init(push_button_t *dev, const push_button_params_t *params)
 {    
 		dev->p.gpio = params->gpio;
 		push_button_events = 0;
-    gpio_init_int(params->gpio, GPIO_IN_PU, GPIO_FALLING, push_button_trigger, NULL);
+    if (gpio_init_int(params->gpio, GPIO_IN_PU, GPIO_FALLING, push_button_trigger, NULL)) {
+			return -1;
+		}
 		return 0;
 }
 

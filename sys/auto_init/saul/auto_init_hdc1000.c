@@ -59,7 +59,6 @@ void auto_init_hdc1000(void)
         int res = hdc1000_init(&hdc1000_devs[i], &hdc1000_params[i]);
         if (res != 0) {
             LOG_ERROR("[auto_init_saul] error initializing hdc1000 #%u\n", i);
-						NVIC_SystemReset();
         }
         else {
             saul_entries[(i * 2)].dev = &(hdc1000_devs[i]);

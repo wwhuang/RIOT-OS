@@ -56,7 +56,6 @@ void auto_init_push_button(void)
         int res = push_button_init(&push_button_devs[i], &push_button_params[i]);
         if (res != 0) {
             LOG_ERROR("[auto_init_saul] error initializing push_button #%u\n", i);
-						NVIC_SystemReset();
         }
         else {
             saul_entries[i].dev = &(push_button_devs[i]);

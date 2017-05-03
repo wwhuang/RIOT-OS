@@ -56,7 +56,6 @@ void auto_init_ekmb1101111(void)
         int res = ekmb1101111_init(&ekmb1101111_devs[i], &ekmb1101111_params[i]);
         if (res != 0) {
             LOG_ERROR("[auto_init_saul] error initializing ekmb1101111 #%u\n", i);
-						NVIC_SystemReset();
         }
         else {
             saul_entries[i].dev = &(ekmb1101111_devs[i]);
