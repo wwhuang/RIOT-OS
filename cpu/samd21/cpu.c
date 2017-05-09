@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015 Freie Universität Berlin
+ * Copyright (C) 2016 UC Berkeley
  *
  * This file is subject to the terms and conditions of the GNU Lesser
  * General Public License v2.1. See the file LICENSE in the top level
@@ -7,14 +7,13 @@
  */
 
 /**
- * @ingroup     cpu_samd21
+ * @ingroup     cpu_samd21 for hamilton
  * @{
  *
  * @file
  * @brief       Implementation of the CPU initialization
  *
- * @author      Thomas Eichinger <thomas.eichinger@fu-berlin.de>
- * @author      Hauke Petersen <hauke.petersen@fu-berlin.de>
+ * @author      Hyung-Sin Kim <hs.kim@berkeley.edu>
  * @}
  */
 
@@ -40,11 +39,11 @@ static void clk_init(void)
 
 
 	/* configure internal 8MHz oscillator to run without prescaler */
-    /*SYSCTRL->OSC8M.bit.PRESC = 0;
+    SYSCTRL->OSC8M.bit.PRESC = 0;
     SYSCTRL->OSC8M.bit.ONDEMAND = 0;
     SYSCTRL->OSC8M.bit.RUNSTDBY = 0;
-    SYSCTRL->OSC8M.bit.ENABLE = 0;*/
-    //while (!(SYSCTRL->PCLKSR.reg & SYSCTRL_PCLKSR_OSC8MRDY)) {}
+    SYSCTRL->OSC8M.bit.ENABLE = 1;
+    while (!(SYSCTRL->PCLKSR.reg & SYSCTRL_PCLKSR_OSC8MRDY)) {}
 
     /* hskim: Main clock setting for hamilton
 	          Step 1) OSCULP32K oscilator feeds Clock generator 1
@@ -93,12 +92,30 @@ static void clk_init(void)
     GCLK->GENDIV.reg  = (GCLK_GENDIV_ID(0)  | GCLK_GENDIV_DIV(0)); //CLOCK_PLL_DIV) |
     GCLK->GENCTRL.reg = (GCLK_GENCTRL_ID(0) | GCLK_GENCTRL_GENEN |
 						 GCLK_GENCTRL_SRC_DFLL48M);
-                         //GCLK_GENCTRL_SRC_FDPLL96M |
+
+	/* hskim: We don't use OSC8M due to its high power consuption (64uA)
+	   Caution: Given that OSC8M was originally the source of Clock generator 0,
+			    we can turn it off "AFTER" setting up another oscilator to feed Clock generator 0.
+                Otherwise, hamilton will stop. */
+		SYSCTRL->OSC8M.bit.ENABLE = 0;
+    while ((SYSCTRL->PCLKSR.reg & SYSCTRL_PCLKSR_OSC8MRDY)) {}
 #else
 	/* do not use DFLL48M, use internal 32kHz oscillator directly */
-    GCLK->GENDIV.reg  = (GCLK_GENDIV_ID(0)  | GCLK_GENDIV_DIV(0)); //CLOCK_DIV) |
+    /*GCLK->GENDIV.reg  = (GCLK_GENDIV_ID(0)  | GCLK_GENDIV_DIV(0)); 
     GCLK->GENCTRL.reg = (GCLK_GENCTRL_ID(0) | GCLK_GENCTRL_GENEN |
-                         GCLK_GENCTRL_SRC_OSCULP32K);
+                         GCLK_GENCTRL_SRC_OSCULP32K);*/
+    SYSCTRL->OSC8M.bit.PRESC = 0;
+    SYSCTRL->OSC8M.bit.ONDEMAND = 0;
+    SYSCTRL->OSC8M.bit.RUNSTDBY = 0;
+    SYSCTRL->OSC8M.bit.ENABLE = 1;
+    while (!(SYSCTRL->PCLKSR.reg & SYSCTRL_PCLKSR_OSC8MRDY)) {}
+
+    GCLK->CTRL.reg = GCLK_CTRL_SWRST;
+    while (GCLK->STATUS.reg & GCLK_STATUS_SYNCBUSY) {}
+
+    GCLK->GENDIV.reg  = (GCLK_GENDIV_ID(0)  | GCLK_GENDIV_DIV(0)); 
+    GCLK->GENCTRL.reg = (GCLK_GENCTRL_ID(0) | GCLK_GENCTRL_GENEN | 
+                         GCLK_GENCTRL_SRC_OSC8M);
 #endif
     /* make sure we synchronize clock generator 0 before we go on */
     while (GCLK->STATUS.reg & GCLK_STATUS_SYNCBUSY) {}
@@ -114,13 +131,6 @@ static void clk_init(void)
                          GCLK_GENCTRL_SRC_OSCULP32K);
     while (GCLK->STATUS.bit.SYNCBUSY) {}
 #endif
-
-	/* hskim: We don't use OSC8M due to its high power consuption (64uA)
-	   Caution: Given that OSC8M was originally the source of Clock generator 0,
-			    we can turn it off "AFTER" setting up another oscilator to feed Clock generator 0.
-                Otherwise, hamilton will stop. */
-	SYSCTRL->OSC8M.bit.ENABLE = 0;
-    while ((SYSCTRL->PCLKSR.reg & SYSCTRL_PCLKSR_OSC8MRDY)) {}
 
 	/* redirect all peripherals to a disabled clock generator (7) by default */
     for (int i = 0x3; i <= 0x22; i++) {

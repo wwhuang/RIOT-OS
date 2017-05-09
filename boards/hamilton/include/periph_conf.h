@@ -73,7 +73,7 @@ extern "C" {
 #elif CLOCK_USE_FLL
 #define CLOCK_CORECLOCK     48000000U
 #else
-#define CLOCK_CORECLOCK     32768U
+#define CLOCK_CORECLOCK      8000000U//32768U
 #endif
 /** @} */
 
@@ -138,8 +138,8 @@ static const uart_conf_t uart_config[] = {
  * @{
  */
 #define PWM_NUMOF           (PWM_0_EN + PWM_1_EN)
-#define PWM_0_EN            1
-#define PWM_1_EN            1
+#define PWM_0_EN            0
+#define PWM_1_EN            0
 #define PWM_MAX_CHANNELS    2
 /* for compatibility with test application */
 #define PWM_0_CHANNELS      PWM_MAX_CHANNELS
