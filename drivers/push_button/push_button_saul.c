@@ -27,7 +27,7 @@ static int read_button(void *dev, phydat_t *res)
 {
     if (push_button_read(&(res->val[0]))) {
 			/* Read failure */
-			return 0;
+			return -ECANCELED;
 		}
     memset(&(res->val[1]), 0, 2 * sizeof(int16_t));
     res->unit  = 0;

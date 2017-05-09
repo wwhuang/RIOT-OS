@@ -28,7 +28,7 @@ static int read_mag(void *dev, phydat_t *res)
     fxos8700_t *d = (fxos8700_t *)dev;
     if (fxos8700_read_mag(d, (fxos8700_measurement_mag_t *)res)) {
 			/* Read failure */			
-			return 0;
+			return -ECANCELED;
 		}
 
     res->unit = UNIT_GS;

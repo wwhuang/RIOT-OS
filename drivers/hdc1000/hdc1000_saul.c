@@ -29,7 +29,7 @@ static int read_temp(void *dev, phydat_t *res)
 
     if (hdc1000_read(d, &(res->val[0]), NULL)) {
 			/* Read failure */			
-			return 0;
+			return -ECANCELED;
 		}
     memset(&(res->val[1]), 0, 2 * sizeof(int16_t));
     res->unit = UNIT_TEMP_C;
