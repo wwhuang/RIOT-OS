@@ -142,8 +142,10 @@ void _xtimer_set(xtimer_t *timer, uint32_t offset)
         _shoot(timer);
     }
     else {
-        uint32_t target = _xtimer_now() + offset;
-        _xtimer_set_absolute(timer, target);
+				uint32_t now = _xtimer_now();
+        uint32_t target = now + offset;
+//        uint32_t target = _xtimer_now() + offset;
+        _xtimer_set_absolute(timer, target, now);
     }
 }
 
@@ -168,9 +170,9 @@ static inline void _lltimer_set(uint32_t target)
     timer_set_absolute(XTIMER_DEV, XTIMER_CHAN, _xtimer_lltimer_mask(target));
 }
 
-int _xtimer_set_absolute(xtimer_t *timer, uint32_t target)
+int _xtimer_set_absolute(xtimer_t *timer, uint32_t target, uint32_t now)
 {
-    uint32_t now = _xtimer_now();
+//    uint32_t now = _xtimer_now();
     int res = 0;
 
     DEBUG("timer_set_absolute(): now=%" PRIu32 " target=%" PRIu32 "\n", now, target);
@@ -288,7 +290,7 @@ void xtimer_remove(xtimer_t *timer)
 
 static uint32_t _time_left(uint32_t target, uint32_t reference)
 {
-    uint32_t now = _xtimer_lltimer_now();
+    /*uint32_t now = _xtimer_lltimer_now();
 
     if (now < reference) {
         return 0;
@@ -299,7 +301,17 @@ static uint32_t _time_left(uint32_t target, uint32_t reference)
     }
     else {
         return 0;
-    }
+    }*/
+		if (_xtimer_lltimer_mask(reference + XTIMER_ISR_BACKOFF) < reference) {
+			return 0;
+		}
+
+		if (target > reference) {
+				return target - reference;
+		}
+		else {
+			return 0;
+		}
 }
 
 static inline int _this_high_period(uint32_t target) {
@@ -432,6 +444,8 @@ static void _timer_callback(void)
 {
     uint32_t next_target;
     uint32_t reference;
+		uint32_t now;
+		//bool null_callback = true;
 
     _in_handler = 1;
 
@@ -439,6 +453,8 @@ static void _timer_callback(void)
           xtimer_now().ticks32, _xtimer_lltimer_mask(xtimer_now().ticks32),
           _xtimer_lltimer_mask(0xffffffff - xtimer_now().ticks32));
 
+		/* 282 us */
+		//LED_ON;
     if (!timer_list_head) {
         DEBUG("_timer_callback(): tick\n");
         /* there's no timer for this timer period,
@@ -459,16 +475,23 @@ static void _timer_callback(void)
          * a timer waiting.
          */
         /* set our period reference to the current time. */
+				/* 272 us */
         reference = _xtimer_lltimer_now();
     }
+		now = reference;
+		//LED_OFF;
 
 overflow:
     /* check if next timers are close to expiring */
-    while (timer_list_head && (_time_left(_xtimer_lltimer_mask(timer_list_head->target), reference) < XTIMER_ISR_BACKOFF)) {
+		/* 582 us */
+    while (timer_list_head && 
+						(_time_left(_xtimer_lltimer_mask(timer_list_head->target), now/*reference*/) < 
+							XTIMER_ISR_BACKOFF)) { /* 192 us */
         /* make sure we don't fire too early */
-        while (_time_left(_xtimer_lltimer_mask(timer_list_head->target), reference));
+				/* 384 us */
+      	//while (_time_left(_xtimer_lltimer_mask(timer_list_head->target), reference));
 
-        /* pick first timer in list */
+				/* pick first timer in list */
         xtimer_t *timer = timer_list_head;
 
         /* advance list */
@@ -480,25 +503,32 @@ overflow:
 
         /* fire timer */
         _shoot(timer);
+				if (!timer->null_callback) {
+					//null_callback = false;		
+					now = _xtimer_lltimer_now();
+				}
     }
 
+		/* 186 us */
     /* possibly executing all callbacks took enough
      * time to overflow.  In that case we advance to
      * next timer period and check again for expired
      * timers.*/
-    if (reference > _xtimer_lltimer_now()) {
+		//LED_ON;
+    if (reference > now) {
+    //if (reference > _xtimer_lltimer_now()) {
         DEBUG("_timer_callback: overflowed while executing callbacks. %i\n", timer_list_head != 0);
         _next_period();
         reference = 0;
-        goto overflow;
+				goto overflow;
     }
-
+		/* 212 us */
     if (timer_list_head) {
         /* schedule callback on next timer target time */
         next_target = timer_list_head->target - XTIMER_OVERHEAD;
 
         /* make sure we're not setting a time in the past */
-        if (next_target < (_xtimer_lltimer_now() + XTIMER_ISR_BACKOFF)) {
+				if (next_target < (now /*_xtimer_lltimer_now()*/ + XTIMER_ISR_BACKOFF)) {
             goto overflow;
         }
     }
@@ -506,7 +536,7 @@ overflow:
         /* there's no timer planned for this timer period */
         /* schedule callback on next overflow */
         next_target = _xtimer_lltimer_mask(0xFFFFFFFF);
-        uint32_t now = _xtimer_lltimer_now();
+        //uint32_t now = _xtimer_lltimer_now(); /* 190 us*/
 
         /* check for overflow again */
         if (now < reference) {
@@ -525,7 +555,7 @@ overflow:
             }
         }
     }
-
+		//LED_OFF;
     _in_handler = 0;
 
     /* set low level timer */
