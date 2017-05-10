@@ -77,7 +77,6 @@ extern "C" {
 #endif
 /** @} */
 
-#define PM_BLOCKER_INITIAL { .val_u32=0x00000000 }
 
 /**
  * @name Timer peripheral configuration
