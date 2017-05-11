@@ -64,7 +64,9 @@ extern "C" {
 
 #define CLOCK_USE_PLL       (0)
 
+#ifndef CLOCK_USE_FLL
 #define CLOCK_USE_FLL       (1)
+#endif
 
 #if CLOCK_USE_PLL
 #define CLOCK_PLL_MUL       (47U)               // must be >= 31 & <= 95
@@ -73,7 +75,7 @@ extern "C" {
 #elif CLOCK_USE_FLL
 #define CLOCK_CORECLOCK     48000000U
 #else
-#define CLOCK_CORECLOCK     32768U
+#define CLOCK_CORECLOCK      8000000U
 #endif
 /** @} */
 
