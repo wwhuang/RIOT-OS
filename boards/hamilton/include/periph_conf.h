@@ -207,6 +207,33 @@ static const spi_conf_t spi_config[] = {
 #define I2C_0_MUX           GPIO_MUX_D
 /** @} */
 
+
+/**
+ * @name Sensor configuration
+ * @{
+ */
+#define HDC1000_PARAMS_BOARD    { .i2c  = I2C_0, \
+                                  .addr = 0x40, \
+                                  .res  = HDC1000_14BIT }
+#define HDC1000_CONVERSION_TIME 150000UL
+
+#define FXOS8700_PARAMS_BOARD   { .i2c  = I2C_0, \
+                                  .addr = 0x1e }
+
+#define TMP006_PARAMS_BOARD     { .i2c  = I2C_0, \
+                                  .addr = 0x44, \
+                                  .conv_rate  = TMP006_CONFIG_CR_AS2 }
+#define TMP006_CONVERSION_TIME  550000UL  
+
+#define APDS9007_PARAMS_BOARD    { .gpio = GPIO_PIN(PA,28), \
+																	 .adc  = ADC_PIN_PA08, \
+																	 .res  = ADC_RES_16BIT }
+#define APDS9007_STABILIZATION_TIME 20000UL
+
+#define EKMB1101111_PARAMS_BOARD    { .gpio = GPIO_PIN(PA,6 ) }
+#define PUSH_BUTTON_PARAMS_BOARD    { .gpio = GPIO_PIN(PA,18) }
+/** @} */
+
 /**
  * @name Random Number Generator configuration
  * @{
