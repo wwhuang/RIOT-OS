@@ -56,6 +56,7 @@ void _xtimer_tsleep(uint32_t offset, uint32_t long_offset)
     xtimer_t timer;
     mutex_t mutex = MUTEX_INIT;
 
+    timer.trivial_callback = true;
     timer.callback = _callback_unlock_mutex;
     timer.arg = (void*) &mutex;
     timer.target = timer.long_target = 0;
@@ -69,6 +70,7 @@ void _xtimer_periodic_wakeup(uint32_t *last_wakeup, uint32_t period) {
     xtimer_t timer;
     mutex_t mutex = MUTEX_INIT;
 
+    timer.trivial_callback = true;
     timer.callback = _callback_unlock_mutex;
     timer.arg = (void*) &mutex;
 
@@ -123,7 +125,7 @@ void _xtimer_periodic_wakeup(uint32_t *last_wakeup, uint32_t period) {
         }
         mutex_lock(&mutex);
         DEBUG("xps, abs: %" PRIu32 "\n", target);
-        _xtimer_set_absolute(&timer, target);
+        _xtimer_set_absolute(&timer, target, now);
         mutex_lock(&mutex);
     }
 out:
