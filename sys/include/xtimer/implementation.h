@@ -215,6 +215,7 @@ static inline void xtimer_set_wakeup64(xtimer_t *timer, uint64_t offset, kernel_
 
 static inline void xtimer_set(xtimer_t *timer, uint32_t offset)
 {
+    timer->trivial_callback = false;
     _xtimer_set(timer, _xtimer_ticks_from_usec(offset));
 }
 

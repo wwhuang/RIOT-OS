@@ -142,6 +142,7 @@ static inline void _setup_msg(xtimer_t *timer, msg_t *msg, kernel_pid_t target_p
 {
     timer->callback = _callback_msg;
     timer->arg = (void*) msg;
+    timer->trivial_callback = false;
 
     /* use sender_pid field to get target_pid into callback function */
     msg->sender_pid = target_pid;
@@ -168,6 +169,7 @@ void _xtimer_set_wakeup(xtimer_t *timer, uint32_t offset, kernel_pid_t pid)
 {
     timer->callback = _callback_wakeup;
     timer->arg = (void*) ((intptr_t)pid);
+    timer->trivial_callback = false;
 
     _xtimer_set(timer, offset);
 }
@@ -176,6 +178,7 @@ void _xtimer_set_wakeup64(xtimer_t *timer, uint64_t offset, kernel_pid_t pid)
 {
     timer->callback = _callback_wakeup;
     timer->arg = (void*) ((intptr_t)pid);
+    timer->trivial_callback = false;
 
     _xtimer_set64(timer, offset, offset >> 32);
 }
@@ -252,6 +255,7 @@ int xtimer_mutex_lock_timeout(mutex_t *mutex, uint64_t timeout)
     if (timeout != 0) {
         t.callback = _mutex_timeout;
         t.arg = (void *)((mutex_thread_t *)&mt);
+        t.trivial_callback = false;
         _xtimer_set64(&t, timeout, timeout >> 32);
     }
 
