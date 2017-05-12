@@ -80,9 +80,19 @@ void at86rf2xx_reset(at86rf2xx_t *dev)
     at86rf2xx_set_txpower(dev, AT86RF2XX_DEFAULT_TXPOWER);
     /* set default options */
     at86rf2xx_set_option(dev, AT86RF2XX_OPT_AUTOACK, true);
+	/* AUTO_CSMA */
+#if AUTO_CSMA_EN
     at86rf2xx_set_option(dev, AT86RF2XX_OPT_CSMA, true);
+#else
+    at86rf2xx_set_option(dev, AT86RF2XX_OPT_CSMA, false);
+	/* CCA setting for manual CSMA */
+	tmp = at86rf2xx_reg_read(dev, AT86RF2XX_REG__PHY_CC_CCA);
+	tmp |= AT86RF2XX_PHY_CC_CCA_DEFAULT__CCA_MODE;
+	at86rf2xx_reg_write(dev, AT86RF2XX_REG__PHY_CC_CCA, tmp);
+#endif
     at86rf2xx_set_option(dev, AT86RF2XX_OPT_TELL_RX_START, false);
     at86rf2xx_set_option(dev, AT86RF2XX_OPT_TELL_RX_END, true);
+
 #ifdef MODULE_NETSTATS_L2
     at86rf2xx_set_option(dev, AT86RF2XX_OPT_TELL_TX_END, true);
 #endif
@@ -111,16 +121,6 @@ void at86rf2xx_reset(at86rf2xx_t *dev)
     tmp |= (AT86RF2XX_TRX_CTRL_0_CLKM_CTRL__OFF);
     at86rf2xx_reg_write(dev, AT86RF2XX_REG__TRX_CTRL_0, tmp);
 
-	/* AUTO_CSMA */
-#if AUTO_CSMA_EN
-    at86rf2xx_set_option(dev, AT86RF2XX_OPT_CSMA, true);
-#else
-    at86rf2xx_set_option(dev, AT86RF2XX_OPT_CSMA, false);
-	/* CCA setting for manual CSMA */
-	tmp = at86rf2xx_reg_read(dev, AT86RF2XX_REG__PHY_CC_CCA);
-	tmp |= AT86RF2XX_PHY_CC_CCA_DEFAULT__CCA_MODE;
-	at86rf2xx_reg_write(dev, AT86RF2XX_REG__PHY_CC_CCA, tmp);
-#endif
 
     /* enable interrupts */
     at86rf2xx_reg_write(dev, AT86RF2XX_REG__IRQ_MASK,
