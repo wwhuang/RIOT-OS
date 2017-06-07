@@ -3,6 +3,7 @@ APPLICATION = openthread
 # If no BOARD is found in the environment, use this default:
 BOARD ?= samr21-xpro
 
+# These are the boards that OpenThread stack has been tested on
 BOARD_WHITELIST := samr21-xpro iotlab-m3 fox iotlab-a8-m3
 
 # This has to be the absolute path to the RIOT base directory:
@@ -11,17 +12,29 @@ RIOTBASE ?= $(CURDIR)/../..
 # Comment this out to disable code in RIOT that does safety checking
 # which is not needed in a production environment but helps in the
 # development process:
-CFLAGS += -DDEVELHELP -Wall
+#CFLAGS += -DDEVELHELP -Wall
 
 # Change this to 0 show compiler invocation lines by default:
 QUIET ?= 1
 
 USEPKG += openthread
-USEMODULE += openthread_contrib
-USEMODULE += libmbedcrypto
-USEMODULE += libopenthread
-USEMODULE += libopenthread-cli
-USEMODULE += xtimer
+OPENTHREAD_TYPE ?= ftd
+ifeq ($(OPENTHREAD_TYPE),mtd)
+    # MTD: A Minimal Thread Device does not have router functionality
+    # compiled in. As a result, it is not necessary to configure the
+    # routerrole on an MTD. At the same time, an MTD may or may not be sleepy.
+    USEMODULE += openthread-mtd
+    USEMODULE += openthread-cli-mtd
+else
+    # ftd: A Full Thread Device has router functionality compiled in
+    USEMODULE += openthread-ftd
+    USEMODULE += openthread-cli-ftd
+endif
+
+#Define PANID and CHANNEL used by default
+OPENTHREAD_PANID ?= 0xbeef
+OPENTHREAD_CHANNEL ?= 26
+CFLAGS += -DOPENTHREAD_PANID=${OPENTHREAD_PANID} -DOPENTHREAD_CHANNEL=${OPENTHREAD_CHANNEL}
 
 ifneq (,$(filter samr21-xpro,$(BOARD)))
   DRIVER := at86rf233
@@ -31,23 +44,17 @@ ifneq (,$(filter iotlab-m3 fox iotlab-a8-m3,$(BOARD)))
 endif
 
 ifneq (,$(filter at86rf2%,$(DRIVER)))
-  FEATURES_REQUIRED = periph_spi
-  FEATURES_REQUIRED = periph_gpio
+  FEATURES_REQUIRED += periph_spi periph_gpio
 endif
 
 USEMODULE += $(DRIVER)
 
+USEMODULE += xtimer
 USEMODULE += random
-USEMODULE += shell
-USEMODULE += shell_commands
 USEMODULE += ps
-USEMODULE += ipv6_addr
 
 #required for C++ compiling
 CXXEXFLAGS += -fno-rtti
 USEMODULE += cpp11-compat
-
-#Define PANID and CHANNEL used by default
-#CFLAGS += -DOPENTHREAD_PANID=0xbeef -DOPENTHREAD_CHANNEL=11
 
 include $(RIOTBASE)/Makefile.include
