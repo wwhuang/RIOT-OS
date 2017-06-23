@@ -39,12 +39,22 @@ extern volatile uint32_t _xtimer_high_cnt;
 #define MSG_XTIMER 12345
 
 /**
- * @brief returns the (masked) low-level timer counter value.
+ * @brief returns the (masked) low-level timer counter value for XTIMER.
  */
 static inline uint32_t _xtimer_lltimer_now(void)
 {
     return timer_read(XTIMER_DEV);
 }
+
+#ifdef STIMER_DEV
+/**
+ * @brief returns the (masked) low-level timer counter value for STIMER.
+ */
+static inline uint32_t _stimer_lltimer_now(void)
+{
+    return timer_read(STIMER_DEV);
+}
+#endif
 
 /**
  * @brief drop bits of a value that don't fit into the low-level timer.
@@ -215,7 +225,6 @@ static inline void xtimer_set_wakeup64(xtimer_t *timer, uint64_t offset, kernel_
 
 static inline void xtimer_set(xtimer_t *timer, uint32_t offset)
 {
-	timer->null_callback = false;
     _xtimer_set(timer, _xtimer_ticks_from_usec(offset));
 }
 

@@ -49,6 +49,19 @@ extern "C" {
 #define XTIMER_USEC_TO_TICKS(value)    ( div_u32_by_15625div512(value) )
 #define XTIMER_TICKS_TO_USEC(value)    ( ((uint64_t)value * 15625)>>9 )
 
+#define STIMER_DEV                     TIMER_1 /* This timer is to support low-power/slow XTIMER */
+#if CLOCK_USE_FLL
+#define STIMER_HZ                      48000000UL
+#else
+#define STIMER_HZ                       8000000UL
+#endif
+
+#ifdef STIMER_DEV
+#define XTIMER_BACKOFF                 8  /* ticks: Threshold to determine spin or not */
+#define XTIMER_OVERHEAD                2  /* ticks: How much earlier does a timer expires? */
+#define XTIMER_ISR_BACKOFF             8  
+#endif
+
  /**
   * @name AT86RF233 configuration
   *
