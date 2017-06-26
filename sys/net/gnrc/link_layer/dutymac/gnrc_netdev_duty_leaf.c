@@ -205,12 +205,6 @@ static void _event_cb(netdev_t *dev, netdev_event_t event)
 				}
 				break;
             }
-			case NETDEV_EVENT_TX_MEDIUM_BUSY:
-#ifdef MODULE_NETSTATS_L2
-				dev->stats.tx_failed++;
-#endif
-				radio_busy = 0; /* radio is free now */
-				break;
 			case NETDEV_EVENT_TX_COMPLETE_PENDING: /* Response for Data Request packet*/
 			{
 #ifdef MODULE_NETSTATS_L2
@@ -255,6 +249,7 @@ static void _event_cb(netdev_t *dev, netdev_event_t event)
 				}
 	        	break;
 			}
+			case NETDEV_EVENT_TX_MEDIUM_BUSY:
 			case NETDEV_EVENT_TX_NOACK:
 			{
 #ifdef MODULE_NETSTATS_L2
