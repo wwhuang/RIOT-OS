@@ -35,7 +35,7 @@
 #include "at86rf2xx_internal.h"
 #include "at86rf2xx_registers.h"
 
-#define ENABLE_DEBUG (1)
+#define ENABLE_DEBUG (0)
 #include "debug.h"
 
 #define _MAX_MHR_OVERHEAD   (25)
@@ -99,9 +99,8 @@ static int _send(netdev_t *netdev, const struct iovec *vector, unsigned count)
     at86rf2xx_t *dev = (at86rf2xx_t *)netdev;
     const struct iovec *ptr = vector;
     size_t len = 0;
-
     at86rf2xx_tx_prepare(dev);
-
+	LED_ON;
     /* load packet data into FIFO */
     for (unsigned i = 0; i < count; i++, ptr++) {
         /* current packet data + FCS too long */
@@ -115,12 +114,14 @@ static int _send(netdev_t *netdev, const struct iovec *vector, unsigned count)
 #endif
         len = at86rf2xx_tx_load(dev, ptr->iov_base, ptr->iov_len, len);
     }
+	LED_OFF;
 
     /* send data out directly if pre-loading id disabled */
-    if (!(dev->netdev.flags & AT86RF2XX_OPT_PRELOADING)) {
+	if (!(dev->netdev.flags & AT86RF2XX_OPT_PRELOADING)) {
         at86rf2xx_tx_exec(dev);
     }
-    /* return the number of bytes that were actually send out */
+	
+/* return the number of bytes that were actually send out */
     return (int)len;
 }
 
@@ -578,6 +579,7 @@ static void _isr(netdev_t *netdev)
 
             DEBUG("[at86rf2xx] EVT - TX_END\n");
 
+	LED_ON;
             if (netdev->event_callback && (dev->netdev.flags & AT86RF2XX_OPT_TELL_TX_END)) {
                 switch (trac_status) {
                     case AT86RF2XX_TRX_STATE__TRAC_SUCCESS:
@@ -602,5 +604,6 @@ static void _isr(netdev_t *netdev)
                 }
             }
         }
+		LED_OFF;
     }
 }

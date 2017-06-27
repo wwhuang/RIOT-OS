@@ -125,8 +125,9 @@ void at86rf2xx_assert_awake(at86rf2xx_t *dev)
 
         /* wake up and wait for transition to TRX_OFF */
         gpio_clear(dev->params.sleep_pin);
-        //xtimer_usleep(AT86RF2XX_WAKEUP_DELAY);
-
+#ifndef STIMER_DEV
+        xtimer_usleep(AT86RF2XX_WAKEUP_DELAY);
+#endif
         /* on some platforms, the timer behind xtimer may be inaccurate
          * or the radio itself may take longer to wake up due to extra
          * capacitance on the oscillator. Spin until we are actually
