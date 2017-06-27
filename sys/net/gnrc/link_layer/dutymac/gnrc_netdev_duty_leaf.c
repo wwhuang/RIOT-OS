@@ -67,12 +67,13 @@ xtimer_t timer;
 uint8_t pending_num = 0;
 
 /* A packet can be sent only when radio_busy = 0 */
-uint8_t radio_busy = 0;
+bool radio_busy = false;
 
 /* This is the packet being sent by the radio now */
 gnrc_pktsnip_t *current_pkt;
 
 bool additional_wakeup = false;
+bool wakeup_while_sending = false;
 
 // FIFO QUEUE
 int msg_queue_add(msg_t* msg_queue, msg_t* msg) {
@@ -127,7 +128,7 @@ void msg_queue_send(msg_t* msg_queue, gnrc_netdev_t* gnrc_dutymac_netdev) {
 		p1 = p1->next;
 		temp_pkt = temp_pkt->next;
 	}
-	radio_busy = 1; /* radio is now busy */
+	radio_busy = true; /* radio is now busy */
 	gnrc_dutymac_netdev->send(gnrc_dutymac_netdev, current_pkt);
 }
 
@@ -138,31 +139,14 @@ void msg_queue_send(msg_t* msg_queue, gnrc_netdev_t* gnrc_dutymac_netdev) {
  * @param[in] event     type of event
  */
 void dutycycle_cb(void* arg) {
+	if (dutycycle_state == DUTY_TX_DATA) {
+		dutycycle_state = DUTY_TX_DATA_BEFORE_DATAREQ;
+		return; 
+	}
 	gnrc_netdev_t* gnrc_dutymac_netdev = (gnrc_netdev_t*) arg;
     msg_t msg;
-	/* Dutycycling state control for leaf nodes */
 	msg.type = GNRC_NETDEV_DUTYCYCLE_MSG_TYPE_EVENT;
-	switch(dutycycle_state) {
-		case DUTY_INIT:
-			break;
-		case DUTY_SLEEP:
-			if (pending_num) {
-				dutycycle_state = DUTY_TX_DATA_BEFORE_DATAREQ;
-			} else {
-				dutycycle_state = DUTY_TX_DATAREQ;
-			}
-			msg_send(&msg, gnrc_dutymac_netdev->pid);
-			break;
-		case DUTY_LISTEN:
-			dutycycle_state = DUTY_SLEEP;
-			msg_send(&msg, gnrc_dutymac_netdev->pid);
-			break;
-		case DUTY_TX_DATA: /* Sleep ends while transmitting data: just state change */
-			dutycycle_state = DUTY_TX_DATA_BEFORE_DATAREQ;
-			break;
-		default:
-			break;
-	}
+	msg_send(&msg, gnrc_dutymac_netdev->pid);
 }
 
 /**
@@ -184,21 +168,24 @@ static void _event_cb(netdev_t *dev, netdev_event_t event)
 	else {
 		DEBUG("gnrc_netdev: event triggered -> %i\n", event);
 		switch(event) {
-			case NETDEV_EVENT_RX_COMPLETE:
+			case NETDEV_EVENT_RX_COMPLETE: 
             {
-				xtimer_remove(&timer);
 				/* Packet decoding */
 				gnrc_pktsnip_t *pkt = gnrc_dutymac_netdev->recv(gnrc_dutymac_netdev);
 
-				if (additional_wakeup) { /* LISTEN for a while for further packet reception */
-					dutycycle_state = DUTY_LISTEN;
-					additional_wakeup = false;
-				} else { /* SLEEP now */
-					dutycycle_state = DUTY_SLEEP;
+				if (dutycycle_state != DUTY_INIT) {
+					if (dutycycle_state != DUTY_LISTEN) { /* Should be in LISTEN state */
+						DEBUG("gnrc_netdev: SOMETHING IS WRONG\n");
+					}
+					xtimer_remove(&timer);
+					/* ToDo: Additional wakeup when receiving a header with pending bit */
+					radio_busy        = false; /* radio is free now */
+					additional_wakeup = false; 
+					
+					msg_t msg;
+					msg.type = GNRC_NETDEV_DUTYCYCLE_MSG_TYPE_EVENT;
+					msg_send(&msg, gnrc_dutymac_netdev->pid);
 				}
-				msg_t msg;
-				msg.type = GNRC_NETDEV_DUTYCYCLE_MSG_TYPE_EVENT;
-				msg_send(&msg, gnrc_dutymac_netdev->pid);
 
 				if (pkt) {
 					_pass_on_packet(pkt);
@@ -211,14 +198,13 @@ static void _event_cb(netdev_t *dev, netdev_event_t event)
        	    	dev->stats.tx_success++;
 #endif
 				if (dutycycle_state != DUTY_INIT) {
-					/* Dutycycle_state must be DUTY_TX_DATAREQ */
-					if (dutycycle_state != DUTY_TX_DATAREQ) {
+					if (dutycycle_state != DUTY_TX_DATAREQ) { /* Should be in DUTY_TX_DATAREQ */
 						DEBUG("gnrc_netdev: SOMETHING IS WRONG\n");
 					}
 					/* LISTEN for a while for packet reception */
-					radio_busy = 0; /* radio is free now */
-					xtimer_remove(&timer);
-					dutycycle_state = DUTY_LISTEN;
+					radio_busy        = false; /* radio is free now */
+					additional_wakeup = true;  /* should wake up further */
+
 					msg_t msg;
 					msg.type = GNRC_NETDEV_DUTYCYCLE_MSG_TYPE_EVENT;
 					msg_send(&msg, gnrc_dutymac_netdev->pid);
@@ -226,51 +212,30 @@ static void _event_cb(netdev_t *dev, netdev_event_t event)
 	       		break;
 			}
 			case NETDEV_EVENT_TX_COMPLETE:
-			{
-#ifdef MODULE_NETSTATS_L2
-       	    	dev->stats.tx_success++;
-#endif
-				if (dutycycle_state != DUTY_INIT) {
-					radio_busy = 0; /* radio is free now */
-					msg_t msg;
-					if (dutycycle_state == DUTY_TX_DATAREQ) { /* Sleep again */
-						xtimer_remove(&timer);											
-						dutycycle_state = DUTY_SLEEP;
-						msg.type = GNRC_NETDEV_DUTYCYCLE_MSG_TYPE_EVENT;
-						msg_send(&msg, gnrc_dutymac_netdev->pid);							
-					} else if (dutycycle_state == DUTY_TX_DATA && !pending_num) {
-						msg.type = GNRC_NETDEV_DUTYCYCLE_MSG_TYPE_EVENT;				
-						msg_send(&msg, gnrc_dutymac_netdev->pid);							
-					} else if (pending_num) { /* Remove the packet from the queue */
-						xtimer_remove(&timer);											
-						msg.type = GNRC_NETDEV_DUTYCYCLE_MSG_TYPE_REMOVE_QUEUE;
-						msg_send(&msg, gnrc_dutymac_netdev->pid);							
-					}
-				}
-	        	break;
-			}
 			case NETDEV_EVENT_TX_MEDIUM_BUSY:
 			case NETDEV_EVENT_TX_NOACK:
 			{
 #ifdef MODULE_NETSTATS_L2
-				dev->stats.tx_failed++;
+				if (event == NETDEV_EVENT_TX_COMPLETE) {
+	       	    	dev->stats.tx_success++;
+				} else {
+					dev->stats.tx_failed++;
+				}
 #endif
 				if (dutycycle_state != DUTY_INIT) {
-					radio_busy = 0; /* radio is free now */
+					radio_busy = false; /* radio is free now */
 					msg_t msg;
-					if (dutycycle_state == DUTY_TX_DATAREQ) { /* Sleep again */
-						xtimer_remove(&timer);											
-						dutycycle_state = DUTY_SLEEP;
-						msg.type = GNRC_NETDEV_DUTYCYCLE_MSG_TYPE_EVENT;
-						msg_send(&msg, gnrc_dutymac_netdev->pid);							
-					} else if (dutycycle_state == DUTY_TX_DATA && !pending_num) {
-						msg.type = GNRC_NETDEV_DUTYCYCLE_MSG_TYPE_EVENT;
-						msg_send(&msg, gnrc_dutymac_netdev->pid);							
-					} else if (pending_num) { /* Remove the packet from the queue */
-						xtimer_remove(&timer);											
-						msg.type = GNRC_NETDEV_DUTYCYCLE_MSG_TYPE_REMOVE_QUEUE;
-						msg_send(&msg, gnrc_dutymac_netdev->pid);							
+					if (dutycycle_state == DUTY_TX_DATAREQ) {
+						additional_wakeup = false;  /* should wake up further */
+						msg.type = GNRC_NETDEV_DUTYCYCLE_MSG_TYPE_EVENT;				
+					} else { 
+						if (pending_num) {
+							msg.type = GNRC_NETDEV_DUTYCYCLE_MSG_TYPE_REMOVE_QUEUE;
+						} else {
+							msg.type = GNRC_NETDEV_DUTYCYCLE_MSG_TYPE_EVENT;				
+						}
 					}
+					msg_send(&msg, gnrc_dutymac_netdev->pid);							
 				}
 				break;
 			}
@@ -369,33 +334,53 @@ static void *_gnrc_netdev_duty_thread(void *args)
 							xtimer_set(&timer,random_uint32_range(0, DUTYCYCLE_SLEEP_INTERVAL));
 							DEBUG("gnrc_netdev: INIT DUTYCYCLE\n");					
 							break;
-						case DUTY_TX_DATAREQ: /* Tx a data request after wake-up */
-							gnrc_dutymac_netdev->send_dataReq(gnrc_dutymac_netdev);
-							DEBUG("gnrc_netdev: SEND DATAREQ\n");					
-							break;
-						case DUTY_TX_DATA:  /* After Tx all data packets */
+						case DUTY_TX_DATA:  /* All data packets are sent (TRX interrupt) */
 							dutycycle_state = DUTY_SLEEP;
 							sleepstate = NETOPT_STATE_SLEEP;
 							dev->driver->set(dev, NETOPT_STATE, &sleepstate, sizeof(netopt_state_t));
 							DEBUG("gnrc_netdev: RADIO OFF\n\n");		
 							break;
-						case DUTY_TX_DATA_BEFORE_DATAREQ:
-							msg_queue_send(pkt_queue, gnrc_dutymac_netdev);
-							DEBUG("gnrc_netdev: SEND DATA BEFORE DATAREQ\n");
+						case DUTY_TX_DATA_BEFORE_DATAREQ: /* After Tx all data packets before a data request 
+														   * (TRX interrupt) */
+							/* Send a data request */
+							dutycycle_state = DUTY_TX_DATAREQ;
+							radio_busy = true; /* radio is now busy */	
+							gnrc_dutymac_netdev->send_dataReq(gnrc_dutymac_netdev);
+							DEBUG("gnrc_netdev: SEND DATAREQ\n");		
 							break;
-						case DUTY_LISTEN: /* Idle listening after transmission or reception */
-							dev->driver->get(dev, NETOPT_STATE, &sleepstate, sizeof(netopt_state_t));
-							sleepstate = NETOPT_STATE_IDLE;
-							dev->driver->set(dev, NETOPT_STATE, &sleepstate, sizeof(netopt_state_t));
-							xtimer_set(&timer, DUTYCYCLE_WAKEUP_INTERVAL);
-							DEBUG("gnrc_netdev: RADIO REMAINS ON\n");
+						case DUTY_TX_DATAREQ: /* After a data request is sent (TRX interrupt) */
+						case DUTY_LISTEN:     /* After Listening is ended (timer expiry or TRX interrupt */
+							if (additional_wakeup) {  /* Need to wake up further to receive more packets */
+								xtimer_set(&timer, DUTYCYCLE_WAKEUP_INTERVAL);
+								additional_wakeup = false;
+								dutycycle_state = DUTY_LISTEN;
+								sleepstate = NETOPT_STATE_IDLE;
+								dev->driver->set(dev, NETOPT_STATE, &sleepstate, sizeof(netopt_state_t));
+								DEBUG("gnrc_netdev: RADIO REMAINS ON\n");
+							} else if (pending_num) { /* Have some packets to send */
+								xtimer_set(&timer, DUTYCYCLE_SLEEP_INTERVAL);
+								dutycycle_state = DUTY_TX_DATA;
+								msg_queue_send(pkt_queue, gnrc_dutymac_netdev);
+								DEBUG("gnrc_netdev: RADIO OFF\n\n");
+							} else {                  /* Good to fall asleep */
+								xtimer_set(&timer, DUTYCYCLE_SLEEP_INTERVAL);
+								dutycycle_state = DUTY_SLEEP;
+								sleepstate = NETOPT_STATE_SLEEP;
+								dev->driver->set(dev, NETOPT_STATE, &sleepstate, sizeof(netopt_state_t));
+								DEBUG("gnrc_netdev: RADIO OFF\n\n");
+							}
 							break;
-						case DUTY_SLEEP: /* Go to sleep */
-							//gpio_write(GPIO_PIN(0,19),0);
-							sleepstate = NETOPT_STATE_SLEEP;
-							dev->driver->set(dev, NETOPT_STATE, &sleepstate, sizeof(netopt_state_t));
-							xtimer_set(&timer, DUTYCYCLE_SLEEP_INTERVAL);
-							DEBUG("gnrc_netdev: RADIO OFF\n\n");
+						case DUTY_SLEEP: /* Wake up from the sleep (timer expiry) */
+							if (pending_num) { /* Have some packets to send before data req */
+								dutycycle_state = DUTY_TX_DATA_BEFORE_DATAREQ;
+								msg_queue_send(pkt_queue, gnrc_dutymac_netdev);
+								DEBUG("gnrc_netdev: SEND DATA BEFORE DATAREQ\n");
+							} else {           /* Send a data request */
+								dutycycle_state = DUTY_TX_DATAREQ;
+								radio_busy = true; /* radio is now busy */	
+								gnrc_dutymac_netdev->send_dataReq(gnrc_dutymac_netdev);
+								DEBUG("gnrc_netdev: SEND DATAREQ\n");					
+							}
 							break;
 						default:
 							break;
@@ -414,10 +399,11 @@ static void *_gnrc_netdev_duty_thread(void *args)
 					msg_queue_send(pkt_queue, gnrc_dutymac_netdev);
 				} else {
 					if (dutycycle_state == DUTY_TX_DATA_BEFORE_DATAREQ) {
-						dutycycle_state = DUTY_TX_DATAREQ;						
+						dutycycle_state = DUTY_TX_DATAREQ;			
+						radio_busy = true; /* radio is now busy */			
 						gnrc_dutymac_netdev->send_dataReq(gnrc_dutymac_netdev);
 						DEBUG("gnrc_netdev: SEND DATAREQ AFTER DATA\n");					
-					} else {
+					} else {								
 						dutycycle_state = DUTY_SLEEP;
 						sleepstate = NETOPT_STATE_SLEEP;
 						dev->driver->set(dev, NETOPT_STATE, &sleepstate, sizeof(netopt_state_t));
@@ -436,21 +422,18 @@ static void *_gnrc_netdev_duty_thread(void *args)
 					gnrc_dutymac_netdev->send(gnrc_dutymac_netdev, pkt);	
 					DEBUG("gnrc_netdev: SENDING IMMEDIATELY\n");						
 				} else {
-					if (_xtimer_usec_from_ticks(timer.target - xtimer_now().ticks32) < 50000 || 
-						pending_num || radio_busy) {
-						/* Queue a packet */
-						msg_queue_add(pkt_queue, &msg);
-						DEBUG("gnrc_netdev: QUEUEING %lu\n", 
-								_xtimer_usec_from_ticks(timer.target - xtimer_now().ticks32));
-					} else {
-						/* Send a packet now */
+					if (dutycycle_state == DUTY_SLEEP && !pending_num && !radio_busy) {/* Send a packet now */
 						dutycycle_state = DUTY_TX_DATA;
-						radio_busy = 1; /* radio is now busy */
+						radio_busy = true; /* radio is now busy */
 						gnrc_pktsnip_t *pkt = msg.content.ptr;
 						gnrc_dutymac_netdev->send(gnrc_dutymac_netdev, pkt);	
 						DEBUG("gnrc_netdev: SENDING IMMEDIATELY %lu\n", 
 								_xtimer_usec_from_ticks(timer.target - xtimer_now().ticks32));	
-					}
+					} else { /* Queue a packet */
+						msg_queue_add(pkt_queue, &msg);
+						DEBUG("gnrc_netdev: QUEUEING %lu\n", 
+								_xtimer_usec_from_ticks(timer.target - xtimer_now().ticks32));
+					} 
 				}
 				break;
 			case GNRC_NETAPI_MSG_TYPE_SET:
