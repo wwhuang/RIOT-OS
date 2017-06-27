@@ -76,6 +76,13 @@ static void clk_init(void)
     GCLK->GENCTRL.reg = (GCLK_GENCTRL_ID(0) | GCLK_GENCTRL_GENEN |
 						 GCLK_GENCTRL_SRC_DFLL48M);
 
+#if TIMER_1_EN
+    /* Setup Clock generator 3 with divider 1 (8MHz) */
+    GCLK->GENDIV.reg  = (GCLK_GENDIV_ID(3)  | GCLK_GENDIV_DIV(6));
+    GCLK->GENCTRL.reg = (GCLK_GENCTRL_ID(3) | GCLK_GENCTRL_GENEN |
+                         GCLK_GENCTRL_SRC_DFLL48M);
+#endif
+
 	/* We don't use OSC8M but DFLL48M for higher speed
 	   Caution: Given that OSC8M was originally the source of Clock generator 0,
 			    we can turn it off "AFTER" setting up another oscilator to feed Clock generator 0.
@@ -96,6 +103,12 @@ static void clk_init(void)
     GCLK->GENDIV.reg  = (GCLK_GENDIV_ID(0)  | GCLK_GENDIV_DIV(0)); 
     GCLK->GENCTRL.reg = (GCLK_GENCTRL_ID(0) | GCLK_GENCTRL_GENEN | 
                          GCLK_GENCTRL_SRC_OSC8M);
+#if TIMER_1_EN
+    /* Setup Clock generator 3 with divider 1 (8MHz) */
+    GCLK->GENDIV.reg  = (GCLK_GENDIV_ID(3)  | GCLK_GENDIV_DIV(0));
+    GCLK->GENCTRL.reg = (GCLK_GENCTRL_ID(3) | GCLK_GENCTRL_GENEN |
+                         GCLK_GENCTRL_SRC_OSC8M);
+#endif
 #endif
     /* make sure we synchronize clock generator 0 before we go on */
     while (GCLK->STATUS.reg & GCLK_STATUS_SYNCBUSY) {}

@@ -149,8 +149,6 @@ void _xtimer_set(xtimer_t *timer, uint32_t offset)
         _shoot(timer);
     }
     else {
-        /*uint32_t target = _xtimer_now() + offset;
-        _xtimer_set_absolute(timer, target);*/
 		uint32_t now = _xtimer_now();
         uint32_t target = now + offset;
         _xtimer_set_absolute(timer, target, now);
@@ -178,9 +176,6 @@ static inline void _lltimer_set(uint32_t target)
     timer_set_absolute(XTIMER_DEV, XTIMER_CHAN, _xtimer_lltimer_mask(target));
 }
 
-/*int _xtimer_set_absolute(xtimer_t *timer, uint32_t target)
-{
-    uint32_t now = _xtimer_now();*/
 int _xtimer_set_absolute(xtimer_t *timer, uint32_t target, uint32_t _now)
 {
 #ifdef STIMER_DEV
@@ -305,8 +300,6 @@ void xtimer_remove(xtimer_t *timer)
 
 static uint32_t _time_left(uint32_t target, uint32_t reference, uint32_t now)
 {
-    /*uint32_t now = _xtimer_lltimer_now();*/
-
     if (now < reference) {
         return 0;
     }
@@ -317,16 +310,6 @@ static uint32_t _time_left(uint32_t target, uint32_t reference, uint32_t now)
     else {
         return 0;
     }
- /*   if (_xtimer_lltimer_mask(reference + XTIMER_ISR_BACKOFF) < reference) {
-	    return 0;
-    }
-
-    if (target > reference) {
-		return target - reference;
-    }
-    else {
-	    return 0;
-    }*/
 }
 
 static inline int _this_high_period(uint32_t target) {
@@ -510,9 +493,6 @@ static void _timer_callback(void)
 	
 overflow:
     /* check if next timers are close to expiring */
-    /*while (timer_list_head && (_time_left(_xtimer_lltimer_mask(timer_list_head->target), reference) < XTIMER_ISR_BACKOFF)) {*/
-        /* make sure we don't fire too early */
-    /*    while (_time_left(_xtimer_lltimer_mask(timer_list_head->target), reference));*/
 #ifdef STIMER_DEV
 	prev_s = _stimer_lltimer_now();
 #endif
@@ -556,14 +536,13 @@ overflow:
 #else
 		/* time update after executing callback */	
 		now = _xtimer_lltimer_now();
-endif
+#endif
     }
 
     /* possibly executing all callbacks took enough
      * time to overflow.  In that case we advance to
      * next timer period and check again for expired
      * timers.*/
-    /*if (reference > _xtimer_lltimer_now()) { */
     if (reference > now) {
         DEBUG("_timer_callback: overflowed while executing callbacks. %i\n",
               timer_list_head != NULL);
@@ -578,7 +557,8 @@ endif
         next_target = timer_list_head->target - XTIMER_OVERHEAD;
 
         /* make sure we're not setting a time in the past */
-        if (next_target < (now /*_xtimer_lltimer_now()*/ + XTIMER_ISR_BACKOFF)) {
+        if (next_target < (now + XTIMER_ISR_BACKOFF)) {
+			now = _xtimer_lltimer_now();
             goto overflow;
         }
     }
@@ -603,7 +583,7 @@ endif
         else {
             /* check if the end of this period is very soon */
             if (_xtimer_lltimer_mask(now + XTIMER_ISR_BACKOFF) < now) {
-                /* spin until next period, then advance */
+				/* spin until next period, then advance */
                 while (_xtimer_lltimer_now() >= now);
                 _next_period();
                 reference = 0;

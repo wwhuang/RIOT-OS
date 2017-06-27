@@ -73,7 +73,7 @@ extern "C" {
 #define CLOCK_PLL_DIV       (1U)                // adjust to your need
 #define CLOCK_CORECLOCK     (((CLOCK_PLL_MUL + 1) * 1000000U) / CLOCK_PLL_DIV)
 #elif CLOCK_USE_FLL
-#define CLOCK_CORECLOCK     48000000U
+#define CLOCK_CORECLOCK      48000000U
 #else
 #define CLOCK_CORECLOCK      8000000U
 #endif

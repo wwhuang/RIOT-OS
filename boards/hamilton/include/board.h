@@ -50,16 +50,14 @@ extern "C" {
 #define XTIMER_TICKS_TO_USEC(value)    ( ((uint64_t)value * 15625)>>9 )
 
 #define STIMER_DEV                     TIMER_1 /* This timer is to support low-power/slow XTIMER */
-#if CLOCK_USE_FLL
-#define STIMER_HZ                      48000000UL
-#else
-#define STIMER_HZ                       8000000UL
-#endif
+#define STIMER_HZ                      1000000UL
 
 #ifdef STIMER_DEV
-#define XTIMER_BACKOFF                 8  /* ticks: Threshold to determine spin or not */
-#define XTIMER_OVERHEAD                2  /* ticks: How much earlier does a timer expires? */
-#define XTIMER_ISR_BACKOFF             8  
+#define XTIMER_BACKOFF                 30  /* ticks: Threshold to determine spin or not 
+                                              It takes 150~200us to get the current time */
+#define XTIMER_OVERHEAD                6   /* ticks: How much earlier does a timer expires? */
+#define XTIMER_ISR_BACKOFF             20  
+#define XTIMER_PERIODIC_RELATIVE       100
 #endif
 
  /**
@@ -67,13 +65,21 @@ extern "C" {
   *
   * {spi bus, spi speed, cs pin, int pin, reset pin, sleep pin}
   */
- #define AT86RF2XX_PARAMS_BOARD      {.spi = SPI_DEV(0), \
-                                      .spi_clk = SPI_CLK_5MHZ, \
-                                      .cs_pin = GPIO_PIN(PB, 31), \
-                                      .int_pin = GPIO_PIN(PB, 0), \
-                                      .sleep_pin = GPIO_PIN(PA, 20), \
-                                      .reset_pin = GPIO_PIN(PB, 15)}
-
+#if CLOCK_USE_FLL
+#define AT86RF2XX_PARAMS_BOARD      {.spi = SPI_DEV(0), \
+                                     .spi_clk = SPI_CLK_5MHZ, \
+                                     .cs_pin = GPIO_PIN(PB, 31), \
+                                     .int_pin = GPIO_PIN(PB, 0), \
+                                     .sleep_pin = GPIO_PIN(PA, 20), \
+                                     .reset_pin = GPIO_PIN(PB, 15)}
+#else
+#define AT86RF2XX_PARAMS_BOARD      {.spi = SPI_DEV(0), \
+                                     .spi_clk = SPI_CLK_1MHZ, \
+                                     .cs_pin = GPIO_PIN(PB, 31), \
+                                     .int_pin = GPIO_PIN(PB, 0), \
+                                     .sleep_pin = GPIO_PIN(PA, 20), \
+                                     .reset_pin = GPIO_PIN(PB, 15)}
+#endif
 /**
  * @name LED pin definitions
  * @{

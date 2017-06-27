@@ -52,14 +52,14 @@ int timer_init(tim_t dev, unsigned long freq, timer_cb_t cb, void *arg)
 #endif
 
 /* If either of the other timers are enabled, configure their clock sources
- * GCLK0 (48MHz) if we use DFLL48MHz
- * GCLK0 (8MHz)  if we use the internal 8MHz oscillator
+ * GCLK3 (8MHz) if we use DFLL48MHz
+ * GCLK3 (8MHz)  if we use the internal 8MHz oscillator
  */
 #if TIMER_0_EN 
     GCLK->CLKCTRL.reg = (uint16_t)((GCLK_CLKCTRL_CLKEN | GCLK_CLKCTRL_GEN_GCLK0 | (TC3_GCLK_ID << GCLK_CLKCTRL_ID_Pos)));
 #endif
 #if TIMER_1_EN
-    GCLK->CLKCTRL.reg = (uint16_t)((GCLK_CLKCTRL_CLKEN | GCLK_CLKCTRL_GEN_GCLK0 | (TC4_GCLK_ID << GCLK_CLKCTRL_ID_Pos)));
+    GCLK->CLKCTRL.reg = (uint16_t)((GCLK_CLKCTRL_CLKEN | GCLK_CLKCTRL_GEN_GCLK3 | (TC4_GCLK_ID << GCLK_CLKCTRL_ID_Pos)));
 #endif
     while (GCLK->STATUS.bit.SYNCBUSY) {}
 
@@ -75,7 +75,7 @@ int timer_init(tim_t dev, unsigned long freq, timer_cb_t cb, void *arg)
         while (TIMER_0_DEV.CTRLA.bit.SWRST) {}
         /* choosing 16 bit mode */
         TIMER_0_DEV.CTRLA.bit.MODE = TC_CTRLA_MODE_COUNT16_Val;
-        /* sourced by 48MHz or 8MHz with prescaler 1 results in... you know it :-) */
+        /* sourced by 1MHz with prescaler 1 results in... you know it :-) */
         TIMER_0_DEV.CTRLA.bit.PRESCALER = TC_CTRLA_PRESCALER_DIV1_Val;
         /* choose normal frequency operation */
         TIMER_0_DEV.CTRLA.bit.WAVEGEN = TC_CTRLA_WAVEGEN_NFRQ_Val;
@@ -92,9 +92,8 @@ int timer_init(tim_t dev, unsigned long freq, timer_cb_t cb, void *arg)
         while (TIMER_1_DEV.CTRLA.bit.SWRST) {}
         /* choosing 32 bit mode */
         TIMER_1_DEV.CTRLA.bit.MODE = TC_CTRLA_MODE_COUNT32_Val;
-        /* sourced by 48MHz or 8MHz with prescaler 1 results in .... */
-        TIMER_1_DEV.CTRLA.bit.PRESCALER = TC_CTRLA_PRESCALER_DIV1_Val;
-
+        /* sourced with Presc 8 results in 1Mhz clk */
+        TIMER_1_DEV.CTRLA.bit.PRESCALER = TC_CTRLA_PRESCALER_DIV8_Val;
         /* choose normal frequency operation */
         TIMER_1_DEV.CTRLA.bit.WAVEGEN = TC_CTRLA_WAVEGEN_NFRQ_Val;
         break;
@@ -105,7 +104,7 @@ int timer_init(tim_t dev, unsigned long freq, timer_cb_t cb, void *arg)
         /* reset timer */
         RTT_DEV.CTRL.bit.SWRST = 1;
         while (RTT_DEV.CTRL.bit.SWRST) {}
-        /* Configure RTC as 32bit counter with prescaler 1 (32.768kHz) no clear on match compare */
+        /* Configure RTC as 32bit counter with no prescaler (32.768kHz) no clear on match compare */
         RTT_DEV.CTRL.reg = (RTC_MODE0_CTRL_MODE_COUNT32 | RTC_MODE0_CTRL_PRESCALER_DIV1);
         while (GCLK->STATUS.bit.SYNCBUSY) {}
         break;
