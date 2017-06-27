@@ -468,27 +468,10 @@ static inline void _set_state(at86rf2xx_t *dev, uint8_t state, uint8_t cmd)
 
 uint8_t at86rf2xx_set_state(at86rf2xx_t *dev, uint8_t state)
 {
-/*    uint8_t old_state = at86rf2xx_get_status(dev);
-
-    if (state == old_state) {
-        return;
-    }
-
-    if (state == AT86RF2XX_STATE_FORCE_TRX_OFF) {
-        _set_state(dev, AT86RF2XX_STATE_TRX_OFF, state);
-        return;
-    }
-*/
-
 	uint8_t old_state;
+
     /* make sure there is no ongoing transmission, or state transition already
      * in progress */
-	/*while (old_state == AT86RF2XX_STATE_BUSY_RX_AACK ||
-           old_state == AT86RF2XX_STATE_BUSY_TX_ARET ||
-           old_state == AT86RF2XX_STATE_IN_PROGRESS) {
-        old_state = at86rf2xx_get_status(dev);
-    }*/
-
     do {
           old_state = at86rf2xx_get_status(dev);		         
     } while (old_state == AT86RF2XX_STATE_BUSY_RX_AACK ||
