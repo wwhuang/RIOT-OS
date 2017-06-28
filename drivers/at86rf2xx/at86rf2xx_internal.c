@@ -27,9 +27,11 @@
 #include "xtimer.h"
 #include "at86rf2xx_internal.h"
 #include "at86rf2xx_registers.h"
+#include "pm_layered.h"
 
 #define SPIDEV          (dev->params.spi)
 #define CSPIN           (dev->params.cs_pin)
+
 
 static inline void getbus(const at86rf2xx_t *dev)
 {
@@ -122,7 +124,8 @@ uint8_t at86rf2xx_get_status(const at86rf2xx_t *dev)
 void at86rf2xx_assert_awake(at86rf2xx_t *dev)
 {
     if(at86rf2xx_get_status(dev) == AT86RF2XX_STATE_SLEEP) {
-
+		/* Prevent CPU from going to the full sleep mode */		
+		pm_radio_on(true);
         /* wake up and wait for transition to TRX_OFF */
         gpio_clear(dev->params.sleep_pin);
 #ifndef STIMER_DEV
@@ -143,11 +146,12 @@ void at86rf2xx_assert_awake(at86rf2xx_t *dev)
 void at86rf2xx_hardware_reset(at86rf2xx_t *dev)
 {
     /* trigger hardware reset */
-    gpio_clear(dev->params.reset_pin);
+	gpio_clear(dev->params.reset_pin);
     xtimer_usleep(AT86RF2XX_RESET_PULSE_WIDTH);
     gpio_set(dev->params.reset_pin);
     xtimer_usleep(AT86RF2XX_RESET_DELAY);
-    dev->state = AT86RF2XX_STATE_P_ON;
+    dev->state = AT86RF2XX_STATE_P_ON;		
+
 }
 
 void at86rf2xx_configure_phy(at86rf2xx_t *dev)

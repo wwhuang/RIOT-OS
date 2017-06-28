@@ -26,8 +26,8 @@
 #include "at86rf2xx.h"
 #include "at86rf2xx_internal.h"
 #include "at86rf2xx_registers.h"
-#include "periph/spi.h"
 #include "pm_layered.h"
+#include "periph/spi.h"
 
 #define ENABLE_DEBUG (0)
 #include "debug.h"
@@ -92,9 +92,6 @@ static const uint8_t dbm_to_tx_pow[] = {0x0f, 0x0f, 0x0f, 0x0e, 0x0e, 0x0e,
                                         0x0b, 0x0a, 0x09, 0x08, 0x07, 0x06,
                                         0x05, 0x03, 0x00};
 #endif
-
-/* Radio-on indicator for CPU LPM */
-static bool radio_on = false;
 
 uint16_t at86rf2xx_get_addr_short(at86rf2xx_t *dev)
 {
@@ -498,11 +495,7 @@ uint8_t at86rf2xx_set_state(at86rf2xx_t *dev, uint8_t state)
     /* check if we need to wake up from sleep mode */
     else if (old_state == AT86RF2XX_STATE_SLEEP) {
         DEBUG("at86rf2xx: waking up from sleep mode\n");
-		/* Prevent CPU from going to the full sleep mode */
-		if (!radio_on) {
-			radio_on = true;
-			pm_block(PM_NUM_MODES-1);	
-		}
+		/* Prevent CPU from going to the full sleep mode */		
         at86rf2xx_assert_awake(dev);
     }
 
@@ -515,10 +508,7 @@ uint8_t at86rf2xx_set_state(at86rf2xx_t *dev, uint8_t state)
         gpio_set(dev->params.sleep_pin);
         dev->state = state;
 		/* Allow CPU to go to the full sleep mode */
-		if (radio_on) {		
-			radio_on = false;
-			pm_unblock(PM_NUM_MODES-1);	
-		}
+		pm_radio_on(false);
     } else {
         _set_state(dev, state, state);
     }
@@ -534,10 +524,6 @@ void at86rf2xx_reset_state_machine(at86rf2xx_t *dev)
     uint8_t old_state;
 
 	/* Prevent CPU from going to the full sleep mode */
-	if (!radio_on) {
-		radio_on = true;
-		pm_block(PM_NUM_MODES-1);	
-	}
     at86rf2xx_assert_awake(dev);
 
     /* Wait for any state transitions to complete before forcing TRX_OFF */

@@ -57,6 +57,13 @@ void pm_block(unsigned mode);
 void pm_unblock(unsigned mode);
 
 /**
+ * @brief   Reflect radio status for PM
+ *
+ * @param[in]   mode      radio on/off
+ */
+void pm_radio_on(bool radio_on);
+
+/**
  * @brief   Switches the MCU to a new power mode
  *
  * This function will be called by @ref pm_set_lowest() after determining the
