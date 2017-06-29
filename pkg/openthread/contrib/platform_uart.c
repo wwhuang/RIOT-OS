@@ -116,12 +116,31 @@ void uart_handler(void* arg, char c)  {
 #else
 
 void uart_handler(void* arg, char c) {
-    msg_t msg;
-    msg.type = OPENTHREAD_SERIAL_MSG_TYPE_EVENT;
-    gSerialMessage[0]->buf[0] = (uint8_t) c;
-    gSerialMessage[0]->length = 1;
-    msg.content.ptr = gSerialMessage[0];
-    msg_send_int(&msg, openthread_get_pid());
+    static uint8_t frameLength = 0;
+    if (frameLength == 0 && gSerialMessage != NULL) {
+        memset(gSerialMessage[0], 0, sizeof(serial_msg_t));
+    }
+    switch (c) {
+        case '\r':
+        case '\n':
+            if (frameLength > 0) {
+                gSerialMessage[0]->buf[frameLength] = c;
+                frameLength++;
+                gSerialMessage[0]->length = frameLength;
+                msg_t msg;
+                msg.type = OPENTHREAD_SERIAL_MSG_TYPE_EVENT;
+                msg.content.ptr = gSerialMessage[0];
+                msg_send_int(&msg, openthread_get_pid());
+                frameLength = 0;
+            }
+            break;
+        default:
+            if (frameLength < OPENTHREAD_SERIAL_BUFFER_SIZE) {
+                gSerialMessage[0]->buf[frameLength] = c;
+                frameLength++;
+            }
+            break;
+    }
 }
 
 #endif /* MODULE_OPENTHREAD_NCP_FTD */

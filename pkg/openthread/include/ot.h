@@ -35,7 +35,7 @@ extern "C" {
 #include "thread.h"
 #include "openthread/types.h"
 
-/**< xtimer message receiver event*/
+/**< xtimer message receiver event */
 #define OPENTHREAD_XTIMER_MSG_TYPE_EVENT                    (0x2235)
 /**< message received from driver */
 #define OPENTHREAD_NETDEV_MSG_TYPE_EVENT                    (0x2236)
@@ -45,27 +45,31 @@ extern "C" {
 #define OPENTHREAD_MSG_TYPE_RECV                            (0x2238)
 /**< event indicating an OT_JOB message */
 #define OPENTHREAD_JOB_MSG_TYPE_EVENT                       (0x2240)
-/**< number of serial reception buffer*/
-#define OPENTHREAD_NUMBER_OF_SERIAL_BUFFER                   (1U)
-/**< sizeof in bytes the two first members of she serial structure*/
-#define OPENTHREAD_SIZEOF_LENGTH_AND_FREEBUFF                (4U)
+/**< number of serial reception buffer */
+#define OPENTHREAD_NUMBER_OF_SERIAL_BUFFER                  (1U)
+/**< sizeof in bytes the two first members of she serial structure */
+#define OPENTHREAD_SIZEOF_LENGTH_AND_FREEBUFF               (4U)
 #ifdef MODULE_OPENTHREAD_NCP_FTD
-/**< sizeof the serial buffer*/
-#define OPENTHREAD_SERIAL_BUFFER_SIZE                        OPENTHREAD_SIZEOF_LENGTH_AND_FREEBUFF + 200
+/**< sizeof the serial buffer */
+#define OPENTHREAD_SERIAL_BUFFER_SIZE                       OPENTHREAD_SIZEOF_LENGTH_AND_FREEBUFF + 200
 #else
-/**< sizeof the serial buffer*/
-#define OPENTHREAD_SERIAL_BUFFER_SIZE                        OPENTHREAD_SIZEOF_LENGTH_AND_FREEBUFF + 1
+/**< sizeof the serial buffer */
+#define OPENTHREAD_SERIAL_BUFFER_SIZE                       OPENTHREAD_SIZEOF_LENGTH_AND_FREEBUFF + 100
 #endif
-/**< sizeof the spinel payload data*/
-#define OPENTHREAD_SERIAL_BUFFER__PAYLOAD_SIZE               OPENTHREAD_SERIAL_BUFFER_SIZE - OPENTHREAD_SIZEOF_LENGTH_AND_FREEBUFF
-/**< error when no more buffer available*/
-#define OPENTHREAD_ERROR_NO_EMPTY_SERIAL_BUFFER              -1
-/**< serial buffer ready to use*/
-#define OPENTHREAD_SERIAL_BUFFER_STATUS_FREE                 (0x0001)
-/**< serial buffer ready for processsing*/
-#define OPENTHREAD_SERIAL_BUFFER_STATUS_READY_TO_PROCESS     (0x0002)
-/**< serial buffer payload full*/
-#define OPENTHREAD_SERIAL_BUFFER_STATUS_FULL                 (0x0004)
+/**< sizeof the spinel payload data */
+#define OPENTHREAD_SERIAL_BUFFER__PAYLOAD_SIZE              OPENTHREAD_SERIAL_BUFFER_SIZE - OPENTHREAD_SIZEOF_LENGTH_AND_FREEBUFF
+/**< error when no more buffer available */
+#define OPENTHREAD_ERROR_NO_EMPTY_SERIAL_BUFFER             -1
+/**< serial buffer ready to use */
+#define OPENTHREAD_SERIAL_BUFFER_STATUS_FREE                (0x0001)
+/**< serial buffer ready for processsing */
+#define OPENTHREAD_SERIAL_BUFFER_STATUS_READY_TO_PROCESS    (0x0002)
+/**< serial buffer payload full */
+#define OPENTHREAD_SERIAL_BUFFER_STATUS_FULL                (0x0004)
+/**< Max length for IEEE802154 frame */
+#define IEEE802154_MAX_LENGTH                               (127U)
+/**< Max length for a netdev buffer  */
+#define OPENTHREAD_NETDEV_BUFLEN                            (IEEE802154_MAX_LENGTH)
 
 
 /**
