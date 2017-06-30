@@ -124,8 +124,8 @@ uint8_t at86rf2xx_get_status(const at86rf2xx_t *dev)
 void at86rf2xx_assert_awake(at86rf2xx_t *dev)
 {
     if(at86rf2xx_get_status(dev) == AT86RF2XX_STATE_SLEEP) {
-		/* Prevent CPU from going to the full sleep mode */		
-		pm_radio_on(true);
+		/* Prevent MCU from going to the full sleep mode */		
+		pm_block(PM_NUM_MODES-1);
         /* wake up and wait for transition to TRX_OFF */
         gpio_clear(dev->params.sleep_pin);
 #ifndef STIMER_DEV
@@ -150,6 +150,10 @@ void at86rf2xx_hardware_reset(at86rf2xx_t *dev)
     xtimer_usleep(AT86RF2XX_RESET_PULSE_WIDTH);
     gpio_set(dev->params.reset_pin);
     xtimer_usleep(AT86RF2XX_RESET_DELAY);
+    /* Prevent MCU from going to the full sleep mode */		
+    if (dev->state == AT86RF2XX_STATE_SLEEP) {
+        pm_block(PM_NUM_MODES-1);
+    }
     dev->state = AT86RF2XX_STATE_P_ON;		
 
 }

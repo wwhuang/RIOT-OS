@@ -33,8 +33,6 @@
 #define PM_BLOCKER_INITIAL { .val_u32 = 0 }
 #endif
 
-static bool radio_on = false;
-
 /**
  * @brief Power Management mode typedef
  */
@@ -96,18 +94,4 @@ void __attribute__((weak)) pm_off(void)
     pm_blocker.val_u32 = 0;
     pm_set_lowest();
     while(1);
-}
-
-void pm_radio_on(bool mode) {
-	if (mode) {
-		if (!radio_on) {
-			radio_on = true;
-			pm_block(PM_NUM_MODES-1);	
-		}
-	} else {
-		if (radio_on) {
-			radio_on = false;
-			pm_unblock(PM_NUM_MODES-1);	
-		}
-	}
 }
