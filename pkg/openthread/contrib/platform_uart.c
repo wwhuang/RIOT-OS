@@ -28,8 +28,7 @@
 #define ENABLE_DEBUG (0)
 #include "debug.h"
 
-#define UART_OPENTHREAD_BAUDRATE            (115200U)
-#define UART_OPENTHREAD                     UART_DEV(0)
+#define OPENTHREAD_UART_DEV                 UART_DEV(0)
 #define OPENTHREAD_SPINEL_FRAME_MARKER      (0x7e)
 
 serial_msg_t * gSerialMessage[OPENTHREAD_NUMBER_OF_SERIAL_BUFFER];
@@ -153,21 +152,21 @@ otError otPlatUartEnable(void)
         gSerialMessage[i]->serial_buffer_status = OPENTHREAD_SERIAL_BUFFER_STATUS_FREE;
     }
 
-    uart_init(UART_OPENTHREAD, UART_OPENTHREAD_BAUDRATE, (uart_rx_cb_t) uart_handler, NULL);
+    uart_init(OPENTHREAD_UART_DEV, OPENTHREAD_UART_BAUDRATE, (uart_rx_cb_t) uart_handler, NULL);
     return OT_ERROR_NONE;
 }
 
 /* OpenThread will call this for disabling UART */
 otError otPlatUartDisable(void)
 {
-    uart_poweroff(UART_OPENTHREAD);
+    uart_poweroff(OPENTHREAD_UART_DEV);
     return OT_ERROR_NONE;
 }
 
 /* OpenThread will call this for sending data through UART */
 otError otPlatUartSend(const uint8_t *aBuf, uint16_t aBufLength)
 {
-    uart_write(UART_OPENTHREAD, aBuf, aBufLength);
+    uart_write(OPENTHREAD_UART_DEV, aBuf, aBufLength);
 
     /* Tell OpenThread the sending of UART is done */
     otPlatUartSendDone();

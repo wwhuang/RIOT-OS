@@ -24,8 +24,9 @@ USEPKG += openthread
 USEMODULE += openthread-ftd
 USEMODULE += openthread-ncp-ftd
 
-#Define PANID and CHANNEL used by default
-#CFLAGS += -DOPENTHREAD_PANID=0xbeef -DOPENTHREAD_CHANNEL=11
+#Define UART_BAUDRATE used by default
+OPENTHREAD_UART_BAUDRATE ?= 115200
+CFLAGS += -DOPENTHREAD_UART_BAUDRATE=${OPENTHREAD_UART_BAUDRATE}
 
 ifneq (,$(filter samr21-xpro,$(BOARD)))
   DRIVER := at86rf233
