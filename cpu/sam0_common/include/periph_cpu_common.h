@@ -64,8 +64,8 @@ typedef uint32_t gpio_t;
  * @{
  */
 #define PM_NUM_MODES        (3)
-/** @todo   we block all modes per default, until PM is cleanly implemented */
-#define PM_BLOCKER_INITIAL  { .val_u32 = 0x01010101 }
+/* @name   Hamilton allows PM */
+#define PM_BLOCKER_INITIAL  { .val_u32 = 0x00000000 }
 /** @} */
 
 #ifndef DOXYGEN
