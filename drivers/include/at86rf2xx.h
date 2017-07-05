@@ -95,6 +95,7 @@ extern "C" {
  * @brief   Flags for device internal states (see datasheet)
  * @{
  */
+#define AT86RF2XX_STATE_P_ON           (0x00)     /**< initial power on */
 #define AT86RF2XX_STATE_FORCE_TRX_OFF  (0x03)     /**< force transition to idle */
 #define AT86RF2XX_STATE_TRX_OFF        (0x08)     /**< idle */
 #define AT86RF2XX_STATE_PLL_ON         (0x09)     /**< ready to transmit */
@@ -117,6 +118,7 @@ extern "C" {
 #define AT86RF2XX_OPT_SRC_ADDR_LONG  (NETDEV_IEEE802154_SRC_MODE_LONG)  /**< legacy define */
 #define AT86RF2XX_OPT_RAWDUMP        (NETDEV_IEEE802154_RAW)            /**< legacy define */
 #define AT86RF2XX_OPT_AUTOACK        (NETDEV_IEEE802154_ACK_REQ)        /**< legacy define */
+#define AT86RF2XX_OPT_ACK_PENDING    (NETDEV_IEEE802154_FRAME_PEND)     /**< legacy define */
 
 #define AT86RF2XX_OPT_CSMA           (0x0100)       /**< CSMA active */
 #define AT86RF2XX_OPT_PROMISCUOUS    (0x0200)       /**< promiscuous mode
