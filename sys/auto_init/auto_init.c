@@ -347,6 +347,10 @@ void auto_init(void)
     extern void auto_init_adcxx1c(void);
     auto_init_adcxx1c();
 #endif
+#ifdef MODULE_APDS9007
+    extern void auto_init_apds9007(void);
+    auto_init_apds9007();
+#endif
 
 #endif /* MODULE_AUTO_INIT_SAUL */
 
