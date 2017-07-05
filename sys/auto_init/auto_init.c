@@ -347,6 +347,10 @@ void auto_init(void)
     extern void auto_init_adcxx1c(void);
     auto_init_adcxx1c();
 #endif
+#ifdef MODULE_EKMB1101111
+    extern void auto_init_ekmb1101111(void);
+    auto_init_ekmb1101111();
+#endif
 
 #endif /* MODULE_AUTO_INIT_SAUL */
 
