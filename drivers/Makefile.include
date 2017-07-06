@@ -136,3 +136,6 @@ endif
 ifneq (,$(filter sx127%,$(USEMODULE)))
     USEMODULE_INCLUDES += $(RIOTBASE)/drivers/sx127x/include
 endif
+ifneq (,$(filter push_button,$(USEMODULE)))
+    USEMODULE_INCLUDES += $(RIOTBASE)/drivers/push_button/include
+endif
