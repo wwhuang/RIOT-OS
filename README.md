@@ -1,3 +1,109 @@
+# Hamilton-combined-v9.0 - July 5th 2017
+
+Board support for the Hamilton mote is maintained as a set of rebasing branches
+that will at some stage be pushed upstream. At intervals, a "combined" branch
+is created so that working with the hamilton is as easy as cloning this repo.
+The v9.0 branch was rebased with "RIOT release 2017.07" and created with the following commands. 
+
+```bash
+git clone https://github.com/Hyungsin/RIOT-OS.git
+cd RIOT-OS
+git remote add upstream https://github.com/RIOT-OS/RIOT.git
+git checkout origin/master 
+# this was 
+commit 219ffb38479710ade70767493fb824f93e8b9c14
+Merge: e91c077 efcc275
+Author: Thomas Eichinger <thomas.eichinger1@gmail.com>
+Date:   Tue Jul 4 13:48:24 2017 -0700
+
+    Merge pull request #7283 from smlng/dist/tools/edbg/fix_macos
+    
+    tools, edbg: fix compiler issue on 
+
+git checkout -b hamilton-combined-v9.0
+git fetch upstream
+git pull upstream/master
+
+# From upstream PR (miscellaneous fixes not merged yet)
+git fetch upstream pull/5969/head:pr-5969
+git merge --no-ff pr-5969 #at30ts74
+
+git fetch upstream pull/5970/head:pr-5970
+git merge --no-ff pr-5970 #mma7660
+
+git fetch upstream pull/7307/head:pr-7307
+git merge --no-ff pr-7307 #gpio fix
+
+git fetch upstream pull/7308/head:pr-7308
+git merge --no-ff pr-7308 #pm configuration fix
+
+git fetch upstream pull/7309/head:pr-7309
+git merge --no-ff pr-7309 #timer independent radio state change
+
+# Hamilton CPU and Board
+git merge --no-ff origin/hamilton-board
+git merge --no-ff origin/hamilton-clock 
+# We are using our own adc implementation
+git merge --no-ff origin/hamilton-adc   
+
+# Hamilton dutycycling MAC (listen-after-send)
+git merge --no-ff origin/hamilton-lasmac
+
+# sensor drivers (SAUL-compatible)
+git merge --no-ff origin/hamilton-pushbutton
+git merge --no-ff origin/hamilton-fxos8700 
+git merge --no-ff origin/hamilton-ekmb1101111
+git merge --no-ff origin/hamilton-apds9007 
+git merge --no-ff origin/hamilton-tmp006
+
+# then this readme was edited
+git commit -m "icing: add readme"
+git push --set-upstream origin hamilton-combined-v9.0
+```
+
+# Average Power Consumption
+
+The power consumption of a hamilton-7C (without the PIR sensor) with this firmware has been measured at
+
+(1) When using the 48 MHz main clock (DFLL)
+
+ INTERVAL  | POWER CONSUMPTION | IDEAL BATTERY LIFE  |
+ --------- | ----------------- | ------------------- |
+  10 s     | 42 uA             | 4.0 years           |
+  20 s     | 25 uA             | 6.8 years           |
+  30 s     | 19 uA             | 9.0 years           |
+  NEVER    | 6.2 uA            | 27.6 years          |
+
+(2) When using the 8 MHz main clock (OSC8M)
+
+ INTERVAL  | POWER CONSUMPTION | IDEAL BATTERY LIFE  |
+ --------- | ----------------- | ------------------- |
+  10 s     | 34 uA             | 5.0 years           |
+  20 s     | 21 uA             | 8.1 years           |
+  30 s     | 16 uA             | 10.7 years          |
+  NEVER    | 6.2 uA            | 27.6 years          |
+
+The ideal battery life is assuming a 1500mAh battery with no self-discharge. In
+real life, results will vary. The power consumption is given as the current term, multiply by the system voltage to get the power. We have found that the whole system current only varies slightly with voltage, so it is more useful to record the current than the power. (In other words at 2.2v instead of 3.3v the idle current will still be 6.2 uA but the "power" will drop by 33%).
+
+# Further work list for Hamilton-combined-v9.x
+1) Xtimer improvement: HYUNG
+2) OpenThread test: HYUNG
+3) Software CSMA: SAM
+4) TCPlp: SAM
+5) LASMAC fix to support TCPlp: SAM/HYUNG
+6) Sensor driver optimization: MICHAEL/HYUNG
+
+If you want to contribute, please consider contributing upstream. If that is
+not appropriate (you have hamilton-specific changes) please submit a PR
+as changes on top of master (which will track upstream) as this makes rebasing
+easier. If that is not possible (you are editing hamilton-specific files) you
+can base your PR on a combined branch, but please make clear which version
+you used. We recommend including this information in your branches, such as
+`c9.0-my-feature`.
+
+# Upstream readme
+
                           ZZZZZZ
                         ZZZZZZZZZZZZ
                       ZZZZZZZZZZZZZZZZ
