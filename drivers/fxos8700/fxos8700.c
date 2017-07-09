@@ -57,15 +57,12 @@ static int fxos8700_write_regs(fxos8700_t* dev, uint8_t reg, uint8_t* data, size
     return 0;
 }
 
-
 static int fxos8700_reset(fxos8700_t* dev)
 {
-  //  uint8_t ctrl2 = 0x40;
-  //  return fxos8700_write_regs(dev, FXOS8700_REG_CTRL_REG2, &ctrl2, 1);
-  return 0;
+    //  uint8_t ctrl2 = 0x40;
+    //  return fxos8700_write_regs(dev, FXOS8700_REG_CTRL_REG2, &ctrl2, 1);
+    return 0;
 }
-
-
 
 int fxos8700_init(fxos8700_t* dev, const fxos8700_params_t *params) 
 {
@@ -121,7 +118,6 @@ int fxos8700_init(fxos8700_t* dev, const fxos8700_params_t *params)
     return 0;
 }
 
-
 int fxos8700_set_active(fxos8700_t* dev)
 {
     uint8_t config = 0x01;
@@ -142,96 +138,104 @@ int fxos8700_set_idle(fxos8700_t* dev)
 
 int fxos8700_read(fxos8700_t* dev, fxos8700_measurement_t* m)
 {
-	uint8_t data[12];
-	uint8_t ready = 0;
+    uint8_t data[12];
+    uint8_t ready = 0;
+
+    if (fxos8700_set_active(dev)) {
+        return -1;
+    }
 
     while(!(ready & 0x08)) {
-		fxos8700_read_regs(dev, FXOS8700_REG__STATUS, &ready, 1);
-	}
-	while(!(ready & 0x08)) {
-		fxos8700_read_regs(dev, FXOS8700_REG_M_DR_STATUS, &ready, 1);
-	}
+        fxos8700_read_regs(dev, FXOS8700_REG__STATUS, &ready, 1);
+    }
+    while(!(ready & 0x08)) {
+        fxos8700_read_regs(dev, FXOS8700_REG_M_DR_STATUS, &ready, 1);
+    }
 
-	/* Read all data at once */
-	if (fxos8700_read_regs(dev, FXOS8700_REG_OUT_X_MSB, &data[0], 12)) {
-	  return -1;
-	}
+    /* Read all data at once */
+    if (fxos8700_read_regs(dev, FXOS8700_REG_OUT_X_MSB, &data[0], 12)) {
+        return -2;
+    }
 
-	/* Read accelerometer */
-	m->acc_x = (int16_t) ((data[0]<<6) | (data[1]>>2));
-	m->acc_y = (int16_t) ((data[2]<<6) | (data[3]>>2));
-	m->acc_z = (int16_t) ((data[4]<<6) | (data[5]>>2));
+    if (fxos8700_set_idle(dev)) {
+        return -3;
+    }
 
-	/* Read magnetometer */
-	m->mag_x = (int16_t) ((data[6] <<8) | data[7]);
-	m->mag_y = (int16_t) ((data[8] <<8) | data[9]);
-	m->mag_z = (int16_t) ((data[10]<<8) | data[11]);
+    /* Read accelerometer */
+    m->acc_x = (int16_t) ((data[0]<<6) | (data[1]>>2));
+    m->acc_y = (int16_t) ((data[2]<<6) | (data[3]>>2));
+    m->acc_z = (int16_t) ((data[4]<<6) | (data[5]>>2));
 
-	return 0;
+    /* Read magnetometer */
+    m->mag_x = (int16_t) ((data[6] <<8) | data[7]);
+    m->mag_y = (int16_t) ((data[8] <<8) | data[9]);
+    m->mag_z = (int16_t) ((data[10]<<8) | data[11]);
+
+    return 0;
 }
 
 int fxos8700_read_mag(fxos8700_t* dev, fxos8700_measurement_mag_t* m)
 {
-	uint8_t data[12];
-	uint8_t ready = 0;
+    uint8_t data[12];
+    uint8_t ready = 0;
 
-  if (fxos8700_set_active(dev)) {
-		return -1;
-	}
+    if (fxos8700_set_active(dev)) {
+        return -1;
+    }
 
-  while(!(ready & 0x08)) {
-		fxos8700_read_regs(dev, FXOS8700_REG__STATUS, &ready, 1);
-	}
-	while(!(ready & 0x08)) {
-		fxos8700_read_regs(dev, FXOS8700_REG_M_DR_STATUS, &ready, 1);
-	}
+    while(!(ready & 0x08)) {
+        fxos8700_read_regs(dev, FXOS8700_REG__STATUS, &ready, 1);
+    }
+    while(!(ready & 0x08)) {
+        fxos8700_read_regs(dev, FXOS8700_REG_M_DR_STATUS, &ready, 1);
+    }
 
-	/* Read all data at once */
-	if (fxos8700_read_regs(dev, FXOS8700_REG_OUT_X_MSB, &data[0], 12)) {
-	  return -2;
-	}
+    /* Read all data at once */
+    if (fxos8700_read_regs(dev, FXOS8700_REG_OUT_X_MSB, &data[0], 12)) {
+        return -2;
+    }
 
-  if (fxos8700_set_idle(dev)) {
-		return -3;
-	}
+    if (fxos8700_set_idle(dev)) {
+        return -3;
+    }
 
-	/* Read magnetometer */
-	m->mag_x = (int16_t) ((data[6] <<8) | data[7]);
-	m->mag_y = (int16_t) ((data[8] <<8) | data[9]);
-	m->mag_z = (int16_t) ((data[10]<<8) | data[11]);
+    /* Read magnetometer */
+    m->mag_x = (int16_t) ((data[6] <<8) | data[7]);
+    m->mag_y = (int16_t) ((data[8] <<8) | data[9]);
+    m->mag_z = (int16_t) ((data[10]<<8) | data[11]);
 
-	return 0;
+    return 0;
 }
 
 int fxos8700_read_acc(fxos8700_t* dev, fxos8700_measurement_acc_t* m)
 {
-	uint8_t data[12];
-	uint8_t ready = 0;
+    uint8_t data[12];
+    uint8_t ready = 0;
 
-  if (fxos8700_set_active(dev)) {
-		return -1;
-	}
+    if (fxos8700_set_active(dev)) {
+        return -1;
+    }
 
-  while(!(ready & 0x08)) {
-		fxos8700_read_regs(dev, FXOS8700_REG__STATUS, &ready, 1);
-	}
+    while(!(ready & 0x08)) {
+        fxos8700_read_regs(dev, FXOS8700_REG__STATUS, &ready, 1);
+    }
 	while(!(ready & 0x08)) {
-		fxos8700_read_regs(dev, FXOS8700_REG_M_DR_STATUS, &ready, 1);
-	}
+        fxos8700_read_regs(dev, FXOS8700_REG_M_DR_STATUS, &ready, 1);
+    }
 
-	/* Read all data at once */
-	if (fxos8700_read_regs(dev, FXOS8700_REG_OUT_X_MSB, &data[0], 12)) {
-	  return -2;
-	}
+    /* Read all data at once */
+    if (fxos8700_read_regs(dev, FXOS8700_REG_OUT_X_MSB, &data[0], 12)) {
+	    return -2;
+    }
 
-  if (fxos8700_set_idle(dev)) {
-		return -3;
-	}
+    if (fxos8700_set_idle(dev)) {
+        return -3;
+    }
 
-	/* Read accelerometer */
-	m->acc_x = (int16_t) ((data[0]<<6) | (data[1]>>2));
-	m->acc_y = (int16_t) ((data[2]<<6) | (data[3]>>2));
-	m->acc_z = (int16_t) ((data[4]<<6) | (data[5]>>2));
+    /* Read accelerometer */
+    m->acc_x = (int16_t) ((data[0]<<6) | (data[1]>>2));
+    m->acc_y = (int16_t) ((data[2]<<6) | (data[3]>>2));
+    m->acc_z = (int16_t) ((data[4]<<6) | (data[5]>>2));
 
-	return 0;
+    return 0;
 }
