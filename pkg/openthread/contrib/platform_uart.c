@@ -115,7 +115,7 @@ void uart_handler(void* arg, char c)  {
 #else
 
 void uart_handler(void* arg, char c) {
-    static uint8_t frameLength = 0;
+    static uint16_t frameLength = 0;
     if (frameLength == 0 && gSerialMessage != NULL) {
         memset(gSerialMessage[0], 0, sizeof(serial_msg_t));
     }
