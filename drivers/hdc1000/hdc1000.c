@@ -123,7 +123,9 @@ int hdc1000_get_results(const hdc1000_t *dev, int16_t *temp, int16_t *hum)
         status = HDC1000_BUSERR;
     }
     i2c_release(dev->p.i2c);
-
+#if CLOCK_USE_ADAPTIVE
+        sysclk_change(true);
+#endif
     if (status == HDC1000_OK) {
         /* if all ok, we convert the values to their physical representation */
         uint16_t traw = ((uint16_t)buf[0] << 8) | buf[1];
@@ -140,7 +142,9 @@ int hdc1000_get_results(const hdc1000_t *dev, int16_t *temp, int16_t *hum)
             *hum = hum_cached;
             hum_cached = 0;
         }
-
+#if CLOCK_USE_ADAPTIVE
+        sysclk_change(false);
+#endif
         if ((hum_cached != 0) || (temp_cached != 0)) {
             xtimer_set(&hdc1000_renew_timer, HDC1000_RENEW_INTERVAL);
         }
