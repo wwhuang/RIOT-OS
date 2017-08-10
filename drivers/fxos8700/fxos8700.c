@@ -22,9 +22,6 @@
 #define ENABLE_DEBUG (0)
 #include "debug.h"
 
-
-#define I2C_SPEED            I2C_SPEED_NORMAL
-
 #define ACCEL_ONLY_MODE      0x00
 #define MAG_ONLY_MODE        0x01
 #define HYBRID_MODE          0x03
@@ -97,7 +94,7 @@ int fxos8700_init(fxos8700_t* dev, const fxos8700_params_t *params)
     dev->p.addr = params->addr;
 
     i2c_acquire(dev->p.i2c);
-    if(i2c_init_master(dev->p.i2c, I2C_SPEED_NORMAL) != 0) {
+    if(i2c_init_master(dev->p.i2c, I2C_SPEED_FAST) != 0) {
         DEBUG("[fxos8700] Can't initialize I2C master\n");
         i2c_release(dev->p.i2c);
         return -3;
@@ -164,14 +161,14 @@ int fxos8700_read(fxos8700_t* dev)
     if (fxos8700_set_active(dev)) {
         return -1;
     }
-
+    
     while(!(ready & 0x08)) {
         fxos8700_read_regs(dev, FXOS8700_REG__STATUS, &ready, 1);
     }
     while(!(ready & 0x08)) {
         fxos8700_read_regs(dev, FXOS8700_REG_M_DR_STATUS, &ready, 1);
     }
-
+    
     /* Read all data at once */
     if (fxos8700_read_regs(dev, FXOS8700_REG_OUT_X_MSB, &data[0], 12)) {
         return -2;
