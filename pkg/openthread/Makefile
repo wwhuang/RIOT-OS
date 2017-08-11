@@ -1,7 +1,5 @@
 PKG_NAME=openthread
-PKG_URL=https://github.com/openthread/openthread.git
-PKG_VERSION=8dc31d6e279d4f04fa64b5357d96e1ed20f4967a
-PKG_BUILDDIR ?= $(BINDIRBASE)/pkg/$(BOARD)/$(PKG_NAME)
+PKG_BUILDDIR ?= $(RIOTBASE)/pkg/openthread/source
 
 ifneq (,$(filter openthread-cli-ftd,$(USEMODULE)))
     $(info Compile OpenThread for FTD device)
@@ -22,7 +20,7 @@ $(info $$OPENTHREAD_ARGS is [${OPENTHREAD_ARGS}])
 .PHONY: all
 
 OPENTHREAD_COMMON_FLAGS=-fdata-sections -ffunction-sections -Os
-all: git-download
+all: 
 	cd $(PKG_BUILDDIR) && PREFIX="/" ./bootstrap
 	cd $(PKG_BUILDDIR) && CPP="$(CPP)" CC="$(CC)" CXX="$(CXX)"\
 		OBJC="" OBJCXX="" AR="$(AR)" RANLIB="$(RANLIB)" NM="$(NM)" \
@@ -35,7 +33,6 @@ all: git-download
 		./configure --disable-docs --host=$(TARGET_ARCH) --target=$(TARGET_ARCH) \
 		--prefix=/ --enable-default-logging ${OPENTHREAD_ARGS}
 	cd $(PKG_BUILDDIR) &&  DESTDIR=$(PKG_BUILDDIR)/output PREFIX=/ make -j4 --no-print-directory install
-
 	cp $(PKG_BUILDDIR)/output/lib/libmbedcrypto.a ${BINDIR}/mbedcrypto.a
 ifneq (,$(filter openthread-cli-ftd,$(USEMODULE)))
 	cp $(PKG_BUILDDIR)/output/lib/libopenthread-ftd.a ${BINDIR}/openthread-ftd.a
@@ -50,4 +47,4 @@ ifneq (,$(filter openthread-ncp-ftd,$(USEMODULE)))
 	cp $(PKG_BUILDDIR)/output/lib/libopenthread-ncp-ftd.a ${BINDIR}/openthread-ncp-ftd.a
 endif
 	sed -ie 's/BASE/_BASE/g' $(PKG_BUILDDIR)/output/include/openthread/types.h
-include $(RIOTBASE)/pkg/pkg.mk
+
