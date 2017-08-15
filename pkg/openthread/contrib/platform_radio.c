@@ -47,6 +47,9 @@ static netdev_t *_dev;
 
 static bool sDisabled;
 
+uint8_t short_address_list = 0;
+uint8_t ext_address_list = 0;
+
 /* set 15.4 channel */
 static int _set_channel(uint16_t channel)
 {
@@ -162,7 +165,7 @@ void recv_pkt(otInstance *aInstance, netdev_t *dev)
     /* Read received frame */
     int res = dev->driver->recv(dev, (char *) sReceiveFrame.mPsdu, len, NULL);
 
-   DEBUG("Received message: len %d\n", (int) sReceiveFrame.mLength);
+    DEBUG("Received message: len %d\n", (int) sReceiveFrame.mLength);
     for (int i = 0; i < sReceiveFrame.mLength; ++i) {
         DEBUG("%x ", sReceiveFrame.mPsdu[i]);
     }
@@ -332,7 +335,9 @@ otRadioCaps otPlatRadioGetCaps(otInstance *aInstance)
 {
     DEBUG("openthread: otPlatRadioGetCaps\n");
     /* all drivers should handle ACK, including call of NETDEV_EVENT_TX_NOACK */
-    return OT_RADIO_CAPS_NONE;
+    /* hskim: we use hardware accelerator for saving energy */
+    return OT_RADIO_CAPS_ACK_TIMEOUT | OT_RADIO_CAPS_TRANSMIT_RETRIES | OT_RADIO_CAPS_CSMA_BACKOFF;
+    //return OT_RADIO_CAPS_NONE;
 }
 
 /* OpenThread will call this for getting the state of promiscuous mode */
@@ -365,46 +370,78 @@ void otPlatRadioEnableSrcMatch(otInstance *aInstance, bool aEnable)
 
 otError otPlatRadioAddSrcMatchShortEntry(otInstance *aInstance, const uint16_t aShortAddress)
 {
-    DEBUG("otPlatRadioAddSrcMatchShortEntry\n");
+    /* hskim: Necessary to support polling procedure */
+    DEBUG("otPlatRadioAddSrcMatchShortEntry %u\n", short_address_list+1);
     (void)aInstance;
     (void)aShortAddress;
+    short_address_list++;
+    bool pending = true;
+    _dev->driver->set(_dev, NETOPT_ACK_PENDING, &pending, sizeof(bool));
     return OT_ERROR_NONE;
 }
 
 otError otPlatRadioAddSrcMatchExtEntry(otInstance *aInstance, const uint8_t *aExtAddress)
 {
-    DEBUG("otPlatRadioAddSrcMatchExtEntry\n");
+    /* hskim: Necessary to support polling procedure */
+    DEBUG("otPlatRadioAddSrcMatchExtEntry %u\n", ext_address_list+1);
     (void)aInstance;
     (void)aExtAddress;
+    ext_address_list++;
+    bool pending = true;
+    _dev->driver->set(_dev, NETOPT_ACK_PENDING, &pending, sizeof(bool));
     return OT_ERROR_NONE;
 }
 
 otError otPlatRadioClearSrcMatchShortEntry(otInstance *aInstance, const uint16_t aShortAddress)
 {
-    DEBUG("otPlatRadioClearSrcMatchShortEntry\n");
+    /* hskim: Necessary to support polling procedure */
+    DEBUG("otPlatRadioClearSrcMatchShortEntry %u\n", short_address_list-1);
     (void)aInstance;
     (void)aShortAddress;
+    short_address_list--;
+    if (ext_address_list == 0 && short_address_list == 0) {
+        bool pending = false;
+        _dev->driver->set(_dev, NETOPT_ACK_PENDING, &pending, sizeof(bool));
+    }
     return OT_ERROR_NONE;
 }
 
 otError otPlatRadioClearSrcMatchExtEntry(otInstance *aInstance, const uint8_t *aExtAddress)
 {
-    DEBUG("otPlatRadioClearSrcMatchExtEntry\n");
+    /* hskim: Necessary to support polling procedure */
+    DEBUG("otPlatRadioClearSrcMatchExtEntry %u\n", ext_address_list-1);
     (void)aInstance;
     (void)aExtAddress;
+    ext_address_list--;
+    if (ext_address_list == 0 && short_address_list == 0) {
+        bool pending = false;
+        _dev->driver->set(_dev, NETOPT_ACK_PENDING, &pending, sizeof(bool));
+    }
     return OT_ERROR_NONE;
 }
 
 void otPlatRadioClearSrcMatchShortEntries(otInstance *aInstance)
 {
-    DEBUG("otPlatRadioClearSrcMatchShortEntries\n");
+    /* hskim: Necessary to support polling procedure */
+    DEBUG("otPlatRadioClearSrcMatchShortEntries\n");    
     (void)aInstance;
+    short_address_list = 0;
+    if (ext_address_list == 0 && short_address_list == 0) {
+        bool pending = false;
+        _dev->driver->set(_dev, NETOPT_ACK_PENDING, &pending, sizeof(bool));
+    }
 }
 
 void otPlatRadioClearSrcMatchExtEntries(otInstance *aInstance)
 {
+    /* hskim: Necessary to support polling procedure */
     DEBUG("otPlatRadioClearSrcMatchExtEntries\n");
     (void)aInstance;
+    ext_address_list = 0;
+    if (ext_address_list == 0 && short_address_list == 0) {
+        bool pending = false;
+        _dev->driver->set(_dev, NETOPT_ACK_PENDING, &pending, sizeof(bool));
+    }
 }
 
 otError otPlatRadioEnergyScan(otInstance *aInstance, uint8_t aScanChannel, uint16_t aScanDuration)
