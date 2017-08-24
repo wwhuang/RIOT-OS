@@ -57,13 +57,13 @@ static int _set_channel(uint16_t channel)
 }
 
 /*get transmission power from driver */
-static int16_t _get_power(void)
+/*static int16_t _get_power(void)
 {
     int16_t power;
 
     _dev->driver->get(_dev, NETOPT_TX_POWER, &power, sizeof(int16_t));
     return power;
-}
+}*/
 
 /* set transmission power */
 static int _set_power(int16_t power)
@@ -143,11 +143,10 @@ void openthread_radio_init(netdev_t *dev, uint8_t *tb, uint8_t *rb)
 /* Called upon NETDEV_EVENT_RX_COMPLETE event */
 void recv_pkt(otInstance *aInstance, netdev_t *dev)
 {
-    DEBUG("Openthread: Received pkt\n");
+    //DEBUG("Openthread: Received pkt\n");
     netdev_ieee802154_rx_info_t rx_info;
     /* Read frame length from driver */
-    int len = dev->driver->recv(dev, NULL, 0, &rx_info);
-    Rssi = rx_info.rssi;
+    int len = dev->driver->recv(dev, NULL, 0, NULL);
 
     /* very unlikely */
     if ((len > (unsigned) UINT16_MAX)) {
@@ -160,12 +159,18 @@ void recv_pkt(otInstance *aInstance, netdev_t *dev)
     /* Openthread needs a packet length with FCS included,
      * OpenThread do not use the data so we don't need to calculate FCS */
     sReceiveFrame.mLength = len + RADIO_IEEE802154_FCS_LEN;
-    sReceiveFrame.mPower = _get_power();
+    //sReceiveFrame.mPower = _get_power();
 
     /* Read received frame */
-    int res = dev->driver->recv(dev, (char *) sReceiveFrame.mPsdu, len, NULL);
+    int res = dev->driver->recv(dev, (char *) sReceiveFrame.mPsdu, len, &rx_info);
+#if MODULE_AT86RF231 | MODULE_AT86RF233
+    Rssi = (int8_t)rx_info.rssi - 94;
+#else
+    Rssi = (int8_t)rx_info.rssi;
+#endif
+    sReceiveFrame.mPower = Rssi;
 
-    DEBUG("Received message: len %d\n", (int) sReceiveFrame.mLength);
+    DEBUG("\nopenthread: Received message: len %d, rssi %d\n", (int) sReceiveFrame.mLength, sReceiveFrame.mPower);
     for (int i = 0; i < sReceiveFrame.mLength; ++i) {
         DEBUG("%x ", sReceiveFrame.mPsdu[i]);
     }
@@ -181,19 +186,19 @@ void send_pkt(otInstance *aInstance, netdev_t *dev, netdev_event_t event)
     /* Tell OpenThread transmission is done depending on the NETDEV event */
     switch (event) {
         case NETDEV_EVENT_TX_COMPLETE:
-            DEBUG("openthread: NETDEV_EVENT_TX_COMPLETE\n");
+            DEBUG("openthread: NETDEV_EVENT_TX_COMPLETE\n\n");
             otPlatRadioTransmitDone(aInstance, &sTransmitFrame, false, OT_ERROR_NONE);
             break;
         case NETDEV_EVENT_TX_COMPLETE_DATA_PENDING:
-            DEBUG("openthread: NETDEV_EVENT_TX_COMPLETE_DATA_PENDING\n");
+            DEBUG("openthread: NETDEV_EVENT_TX_COMPLETE_DATA_PENDING\n\n");
             otPlatRadioTransmitDone(aInstance, &sTransmitFrame, true, OT_ERROR_NONE);
             break;
         case NETDEV_EVENT_TX_NOACK:
-            DEBUG("openthread: NETDEV_EVENT_TX_NOACK\n");
+            DEBUG("openthread: NETDEV_EVENT_TX_NOACK\n\n");
             otPlatRadioTransmitDone(aInstance, &sTransmitFrame, false, OT_ERROR_NO_ACK);
             break;
         case NETDEV_EVENT_TX_MEDIUM_BUSY:
-            DEBUG("openthread: NETDEV_EVENT_TX_MEDIUM_BUSY\n");
+            DEBUG("openthread: NETDEV_EVENT_TX_MEDIUM_BUSY\n\n");
             otPlatRadioTransmitDone(aInstance, &sTransmitFrame, false, OT_ERROR_CHANNEL_ACCESS_FAILURE);
             break;
         default:
@@ -279,7 +284,7 @@ otError otPlatRadioSleep(otInstance *aInstance)
 /*OpenThread will call this for waiting the reception of a packet */
 otError otPlatRadioReceive(otInstance *aInstance, uint8_t aChannel)
 {
-    DEBUG("openthread: otPlatRadioReceive. Channel: %i\n", aChannel);
+    //DEBUG("openthread: otPlatRadioReceive. Channel: %i\n", aChannel);
     (void) aInstance;
 
     _set_idle();
@@ -317,10 +322,10 @@ otError otPlatRadioTransmit(otInstance *aInstance, otRadioFrame *aPacket)
 
     /*Set channel and power based on transmit frame */
     DEBUG("otPlatRadioTransmit->channel: %i, length %d\n", (int) aPacket->mChannel, (int)aPacket->mLength);
-    for (int i = 0; i < aPacket->mLength; ++i) {
+    /*for (int i = 0; i < aPacket->mLength; ++i) {
         DEBUG("%x ", aPacket->mPsdu[i]);
     }
-    DEBUG("\n");
+    DEBUG("\n");*/
     _set_channel(aPacket->mChannel);
     _set_power(aPacket->mPower);
 
@@ -333,7 +338,7 @@ otError otPlatRadioTransmit(otInstance *aInstance, otRadioFrame *aPacket)
 /* OpenThread will call this for getting the radio caps */
 otRadioCaps otPlatRadioGetCaps(otInstance *aInstance)
 {
-    DEBUG("openthread: otPlatRadioGetCaps\n");
+    //DEBUG("openthread: otPlatRadioGetCaps\n");
     /* all drivers should handle ACK, including call of NETDEV_EVENT_TX_NOACK */
     /* hskim: we use hardware accelerator for saving energy */
     return OT_RADIO_CAPS_ACK_TIMEOUT | OT_RADIO_CAPS_TRANSMIT_RETRIES | OT_RADIO_CAPS_CSMA_BACKOFF;
