@@ -266,12 +266,12 @@ void otPlatRadioSetPanId(otInstance *aInstance, uint16_t panid)
 }
 
 /* OpenThread will call this for setting extended address */
-void otPlatRadioSetExtendedAddress(otInstance *aInstance, uint8_t *aExtendedAddress)
+void otPlatRadioSetExtendedAddress(otInstance *aInstance, const otExtAddress *aExtendedAddress)
 {
     DEBUG("openthread: otPlatRadioSetExtendedAddress\n");
     uint8_t reversed_addr[IEEE802154_LONG_ADDRESS_LEN];
     for (int i = 0; i < IEEE802154_LONG_ADDRESS_LEN; i++) {
-        reversed_addr[i] = aExtendedAddress[IEEE802154_LONG_ADDRESS_LEN - 1 - i];
+        reversed_addr[i] = aExtendedAddress->m8[IEEE802154_LONG_ADDRESS_LEN - 1 - i];
     }
     _set_long_addr(reversed_addr);
 }
@@ -437,7 +437,7 @@ otError otPlatRadioAddSrcMatchShortEntry(otInstance *aInstance, const uint16_t a
     return OT_ERROR_NONE;
 }
 
-otError otPlatRadioAddSrcMatchExtEntry(otInstance *aInstance, const uint8_t *aExtAddress)
+otError otPlatRadioAddSrcMatchExtEntry(otInstance *aInstance, const otExtAddress *aExtAddress)
 {
     /* hskim: Necessary to support polling procedure */
     DEBUG("otPlatRadioAddSrcMatchExtEntry %u\n", ext_address_list+1);
@@ -463,7 +463,7 @@ otError otPlatRadioClearSrcMatchShortEntry(otInstance *aInstance, const uint16_t
     return OT_ERROR_NONE;
 }
 
-otError otPlatRadioClearSrcMatchExtEntry(otInstance *aInstance, const uint8_t *aExtAddress)
+otError otPlatRadioClearSrcMatchExtEntry(otInstance *aInstance, const otExtAddress *aExtAddress)
 {
     /* hskim: Necessary to support polling procedure */
     DEBUG("otPlatRadioClearSrcMatchExtEntry %u\n", ext_address_list-1);
