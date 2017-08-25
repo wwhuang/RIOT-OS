@@ -70,7 +70,7 @@ static void *_openthread_event_loop(void *arg) {
     otPlatUartEnable();
 
     /* init OpenThread */
-    sInstance = otInstanceInit();
+    sInstance = otInstanceInitSingle();
 
     msg_init_queue(_queue, OPENTHREAD_QUEUE_LEN);
     netdev_t *dev;
