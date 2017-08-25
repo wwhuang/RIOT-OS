@@ -1,6 +1,6 @@
 PKG_NAME=openthread
 PKG_URL=https://github.com/openthread/openthread.git
-PKG_VERSION=fc72e4e7197f595a6e1d6a43dd5811c3bc260db0
+PKG_VERSION=f77321ac9c6a20d1269e42287f40aae62be875ec
 PKG_BUILDDIR ?= $(BINDIRBASE)/pkg/$(BOARD)/$(PKG_NAME)
 
 ifneq (,$(filter openthread-cli-ftd,$(USEMODULE)))

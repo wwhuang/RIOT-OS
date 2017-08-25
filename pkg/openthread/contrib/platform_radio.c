@@ -38,6 +38,31 @@
 #include "debug.h"
 
 #define RADIO_IEEE802154_FCS_LEN    (2U)
+#define IEEE802154_ACK_LENGTH (5)
+enum
+{
+    IEEE802154_FRAME_TYPE_MASK        = 0x7,     ///< (IEEE 802.15.4-2006) PSDU.FCF.frameType
+    IEEE802154_FRAME_TYPE_ACK         = 0x2,     ///< (IEEE 802.15.4-2006) frame type: ACK
+    IEEE802154_FRAME_PENDING          = (1<<4),  ///< (IEEE 802.15.4-2006) PSDU.FCF.bFramePending
+    IEEE802154_ACK_REQUEST            = (1<<5),  ///< (IEEE 802.15.4-2006) PSDU.FCF.bAR
+    IEEE802154_DSN_OFFSET             = 2,       ///< (IEEE 802.15.4-2006) PSDU.sequenceNumber
+    IEEE802154_MAC_MIN_BE             = 1,       ///< (IEEE 802.15.4-2006) macMinBE
+    IEEE802154_MAC_MAX_BE             = 5,       ///< (IEEE 802.15.4-2006) macMaxBE
+    IEEE802154_MAC_MAX_CSMA_BACKOFFS  = 4,       ///< (IEEE 802.15.4-2006) macMaxCSMABackoffs
+    IEEE802154_MAC_MAX_FRAMES_RETRIES = 3,       ///< (IEEE 802.15.4-2006) macMaxFrameRetries
+    IEEE802154_A_UINT_BACKOFF_PERIOD  = 20,      ///< (IEEE 802.15.4-2006 7.4.1) MAC constants
+    IEEE802154_A_TURNAROUND_TIME      = 12,      ///< (IEEE 802.15.4-2006 6.4.1) PHY constants
+    IEEE802154_PHY_SHR_DURATION       = 10,
+    ///< (IEEE 802.15.4-2006 6.4.2) PHY PIB attribute, specifically the O-QPSK PHY
+    IEEE802154_PHY_SYMBOLS_PER_OCTET  = 2,
+    ///< (IEEE 802.15.4-2006 6.4.2) PHY PIB attribute, specifically the O-QPSK PHY
+    IEEE802154_MAC_ACK_WAIT_DURATION  = (IEEE802154_A_UINT_BACKOFF_PERIOD +
+                                         IEEE802154_A_TURNAROUND_TIME     +
+                                         IEEE802154_PHY_SHR_DURATION      +
+                                         ( 6 * IEEE802154_PHY_SYMBOLS_PER_OCTET)),
+    ///< (IEEE 802.15.4-2006 7.4.2) macAckWaitDuration PIB attribute
+    IEEE802154_SYMBOLS_PER_SEC        = 62500    ///< (IEEE 802.15.4-2006 6.5.3.2) O-QPSK symbol rate
+};
 
 static otRadioFrame sTransmitFrame;
 static otRadioFrame sReceiveFrame;
@@ -180,26 +205,53 @@ void recv_pkt(otInstance *aInstance, netdev_t *dev)
     otPlatRadioReceiveDone(aInstance, res > 0 ? &sReceiveFrame : NULL, res > 0 ? OT_ERROR_NONE : OT_ERROR_ABORT);
 }
 
+/* create a fake ACK frame */
+// TODO: pass received ACK frame instead of generating one.
+static inline otRadioFrame _create_fake_ack_frame(bool ackPending)
+{
+    otRadioFrame ackFrame;
+    uint8_t psdu[IEEE802154_ACK_LENGTH];
+
+    ackFrame.mPsdu = psdu;
+    ackFrame.mLength = IEEE802154_ACK_LENGTH;
+    ackFrame.mPsdu[0] = IEEE802154_FRAME_TYPE_ACK;
+
+    if (ackPending)
+    {
+        ackFrame.mPsdu[0] |= IEEE802154_FRAME_PENDING;
+    }
+
+    ackFrame.mPsdu[1] = 0;
+    ackFrame.mPsdu[2] = sTransmitFrame.mPsdu[IEEE802154_DSN_OFFSET];
+
+    ackFrame.mPower = OT_RADIO_RSSI_INVALID;
+
+    return ackFrame;
+}
+
 /* Called upon TX event */
 void send_pkt(otInstance *aInstance, netdev_t *dev, netdev_event_t event)
 {
+    otRadioFrame ackFrame;
     /* Tell OpenThread transmission is done depending on the NETDEV event */
     switch (event) {
         case NETDEV_EVENT_TX_COMPLETE:
             DEBUG("openthread: NETDEV_EVENT_TX_COMPLETE\n");
-            otPlatRadioTransmitDone(aInstance, &sTransmitFrame, false, OT_ERROR_NONE);
+            ackFrame = _create_fake_ack_frame(false);
+            otPlatRadioTxDone(aInstance, &sTransmitFrame, &ackFrame, OT_ERROR_NONE);
             break;
         case NETDEV_EVENT_TX_COMPLETE_DATA_PENDING:
             DEBUG("openthread: NETDEV_EVENT_TX_COMPLETE_DATA_PENDING\n");
-            otPlatRadioTransmitDone(aInstance, &sTransmitFrame, true, OT_ERROR_NONE);
+            ackFrame = _create_fake_ack_frame(true);
+            otPlatRadioTxDone(aInstance, &sTransmitFrame, &ackFrame, OT_ERROR_NONE);
             break;
         case NETDEV_EVENT_TX_NOACK:
             DEBUG("openthread: NETDEV_EVENT_TX_NOACK\n");
-            otPlatRadioTransmitDone(aInstance, &sTransmitFrame, false, OT_ERROR_NO_ACK);
+            otPlatRadioTxDone(aInstance, &sTransmitFrame, NULL, OT_ERROR_NO_ACK);
             break;
         case NETDEV_EVENT_TX_MEDIUM_BUSY:
             DEBUG("openthread: NETDEV_EVENT_TX_MEDIUM_BUSY\n");
-            otPlatRadioTransmitDone(aInstance, &sTransmitFrame, false, OT_ERROR_CHANNEL_ACCESS_FAILURE);
+            otPlatRadioTxDone(aInstance, &sTransmitFrame, NULL, OT_ERROR_CHANNEL_ACCESS_FAILURE);
             break;
         default:
             break;
