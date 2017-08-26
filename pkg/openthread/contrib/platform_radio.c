@@ -38,6 +38,8 @@
 #include "debug.h"
 
 #define RADIO_IEEE802154_FCS_LEN    (2U)
+#define IEEE802154_ACK_LENGTH (5)
+#define IEEE802154_DSN_OFFSET (2)
 
 static otRadioFrame sTransmitFrame;
 static otRadioFrame sReceiveFrame;
@@ -180,26 +182,53 @@ void recv_pkt(otInstance *aInstance, netdev_t *dev)
     otPlatRadioReceiveDone(aInstance, res > 0 ? &sReceiveFrame : NULL, res > 0 ? OT_ERROR_NONE : OT_ERROR_ABORT);
 }
 
+/* create a fake ACK frame */
+// TODO: pass received ACK frame instead of generating one.
+static inline otRadioFrame _create_fake_ack_frame(bool ackPending)
+{
+    otRadioFrame ackFrame;
+    uint8_t psdu[IEEE802154_ACK_LENGTH];
+
+    ackFrame.mPsdu = psdu;
+    ackFrame.mLength = IEEE802154_ACK_LENGTH;
+    ackFrame.mPsdu[0] = IEEE802154_FCF_TYPE_ACK;
+
+    if (ackPending)
+    {
+        ackFrame.mPsdu[0] |= IEEE802154_FCF_FRAME_PEND;
+    }
+
+    ackFrame.mPsdu[1] = 0;
+    ackFrame.mPsdu[2] = sTransmitFrame.mPsdu[IEEE802154_DSN_OFFSET];
+
+    ackFrame.mPower = OT_RADIO_RSSI_INVALID;
+
+    return ackFrame;
+}
+
 /* Called upon TX event */
 void send_pkt(otInstance *aInstance, netdev_t *dev, netdev_event_t event)
 {
+    otRadioFrame ackFrame;
     /* Tell OpenThread transmission is done depending on the NETDEV event */
     switch (event) {
         case NETDEV_EVENT_TX_COMPLETE:
             DEBUG("openthread: NETDEV_EVENT_TX_COMPLETE\n");
-            otPlatRadioTransmitDone(aInstance, &sTransmitFrame, false, OT_ERROR_NONE);
+            ackFrame = _create_fake_ack_frame(false);
+            otPlatRadioTxDone(aInstance, &sTransmitFrame, &ackFrame, OT_ERROR_NONE);
             break;
         case NETDEV_EVENT_TX_COMPLETE_DATA_PENDING:
             DEBUG("openthread: NETDEV_EVENT_TX_COMPLETE_DATA_PENDING\n");
-            otPlatRadioTransmitDone(aInstance, &sTransmitFrame, true, OT_ERROR_NONE);
+            ackFrame = _create_fake_ack_frame(true);
+            otPlatRadioTxDone(aInstance, &sTransmitFrame, &ackFrame, OT_ERROR_NONE);
             break;
         case NETDEV_EVENT_TX_NOACK:
             DEBUG("openthread: NETDEV_EVENT_TX_NOACK\n");
-            otPlatRadioTransmitDone(aInstance, &sTransmitFrame, false, OT_ERROR_NO_ACK);
+            otPlatRadioTxDone(aInstance, &sTransmitFrame, NULL, OT_ERROR_NO_ACK);
             break;
         case NETDEV_EVENT_TX_MEDIUM_BUSY:
             DEBUG("openthread: NETDEV_EVENT_TX_MEDIUM_BUSY\n");
-            otPlatRadioTransmitDone(aInstance, &sTransmitFrame, false, OT_ERROR_CHANNEL_ACCESS_FAILURE);
+            otPlatRadioTxDone(aInstance, &sTransmitFrame, NULL, OT_ERROR_CHANNEL_ACCESS_FAILURE);
             break;
         default:
             break;
@@ -214,12 +243,12 @@ void otPlatRadioSetPanId(otInstance *aInstance, uint16_t panid)
 }
 
 /* OpenThread will call this for setting extended address */
-void otPlatRadioSetExtendedAddress(otInstance *aInstance, uint8_t *aExtendedAddress)
+void otPlatRadioSetExtendedAddress(otInstance *aInstance, const otExtAddress *aExtendedAddress)
 {
     DEBUG("openthread: otPlatRadioSetExtendedAddress\n");
     uint8_t reversed_addr[IEEE802154_LONG_ADDRESS_LEN];
     for (int i = 0; i < IEEE802154_LONG_ADDRESS_LEN; i++) {
-        reversed_addr[i] = aExtendedAddress[IEEE802154_LONG_ADDRESS_LEN - 1 - i];
+        reversed_addr[i] = aExtendedAddress->m8[IEEE802154_LONG_ADDRESS_LEN - 1 - i];
     }
     _set_long_addr(reversed_addr);
 }
@@ -385,7 +414,7 @@ otError otPlatRadioAddSrcMatchShortEntry(otInstance *aInstance, const uint16_t a
     return OT_ERROR_NONE;
 }
 
-otError otPlatRadioAddSrcMatchExtEntry(otInstance *aInstance, const uint8_t *aExtAddress)
+otError otPlatRadioAddSrcMatchExtEntry(otInstance *aInstance, const otExtAddress *aExtAddress)
 {
     /* hskim: Necessary to support polling procedure */
     DEBUG("otPlatRadioAddSrcMatchExtEntry %u\n", ext_address_list+1);
@@ -411,7 +440,7 @@ otError otPlatRadioClearSrcMatchShortEntry(otInstance *aInstance, const uint16_t
     return OT_ERROR_NONE;
 }
 
-otError otPlatRadioClearSrcMatchExtEntry(otInstance *aInstance, const uint8_t *aExtAddress)
+otError otPlatRadioClearSrcMatchExtEntry(otInstance *aInstance, const otExtAddress *aExtAddress)
 {
     /* hskim: Necessary to support polling procedure */
     DEBUG("otPlatRadioClearSrcMatchExtEntry %u\n", ext_address_list-1);
