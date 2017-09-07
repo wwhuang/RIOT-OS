@@ -40,6 +40,9 @@ git merge --no-ff pr-7308 #pm configuration fix
 git fetch upstream pull/7309/head:pr-7309
 git merge --no-ff pr-7309 #timer independent radio state change
 
+git fetch upstream pull/7492/head:pr-7492
+git merge --no-ff pr-7492 #fix samr21 uart driver
+
 # Hamilton CPU and Board
 git merge --no-ff origin/hamilton-board
 git merge --no-ff origin/hamilton-clock 

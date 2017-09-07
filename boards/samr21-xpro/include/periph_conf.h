@@ -272,7 +272,7 @@ static const adc_conf_chan_t adc_channels[] = {
 };
 
 #define ADC_0_CHANNELS                     (2U)
-#define ADC_NUMOF                          ADC_0_CHANNELS
+#define ADC_NUMOF                          0//ADC_0_CHANNELS
 /** @} */
 #ifdef __cplusplus
 }

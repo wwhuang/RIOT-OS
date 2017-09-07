@@ -31,17 +31,13 @@
 #define WORD2               (*(volatile uint32_t *)0x0080A044)
 #define WORD3               (*(volatile uint32_t *)0x0080A048)
 
-#ifndef HAS_FACTORY_BLOCK
-#define HAS_FACTORY_BLOCK 0
-#endif
-
 void cpuid_get(void *id)
 {
-    if (HAS_FACTORY_BLOCK) {
-        memset(id, 0, CPUID_LEN);
-        memcpy(id, fb_eui64, 8);
-    } else {
-        uint32_t addr[] = { WORD0, WORD1, WORD2, WORD3 };
-        memcpy(id, (void *)addr, CPUID_LEN);
-    }
+#ifdef HAS_FACTORY_BLCOK
+    memset(id, 0, CPUID_LEN);
+    memcpy(id, fb_eui64, 8);
+#else
+    uint32_t addr[] = { WORD0, WORD1, WORD2, WORD3 };
+    memcpy(id, (void *)addr, CPUID_LEN);
+#endif
 }

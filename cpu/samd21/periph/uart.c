@@ -26,7 +26,7 @@
 #include "periph/uart.h"
 #include "periph/gpio.h"
 
-#if UART_NUMOF
+#ifdef UART_NUMOF
 /**
  * @brief   Allocate memory to store the callback functions
  */

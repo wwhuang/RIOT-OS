@@ -45,27 +45,23 @@ void luid_custom(void *buf, size_t len, int gen)
     }
 }
 
-#ifndef HAS_FACTORY_BLOCK
-#define HAS_FACTORY_BLOCK 0
-#endif
-
 void luid_base(void *buf, size_t len)
 {
     assert(buf && (len > 0));
 
     memset(buf, LUID_BACKUP_SEED, len);
 
-    if (HAS_FACTORY_BLOCK) {
-        memcpy(buf, fb_eui64, 8);
-    } else {
+#ifdef HAS_FACTORY_BLOCK
+    memcpy(buf, fb_eui64, 8);
+#else
 #if CPUID_LEN
-        uint8_t *out = (uint8_t *)buf;
-        uint8_t cid[CPUID_LEN];
+    uint8_t *out = (uint8_t *)buf;
+    uint8_t cid[CPUID_LEN];
 
-        cpuid_get(cid);
-        for (size_t i = 0; i < CPUID_LEN; i++) {
-            out[i % len] ^= cid[i];
-        }
-#endif
+    cpuid_get(cid);
+    for (size_t i = 0; i < CPUID_LEN; i++) {
+        out[i % len] ^= cid[i];
     }
+#endif
+#endif
 }
