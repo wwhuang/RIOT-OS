@@ -36,14 +36,6 @@ extern "C" {
 #define OPENTHREAD_CONFIG_NUM_MESSAGE_BUFFERS       10
 #endif
 
-/**
-  * @def OPENTHREAD_CONFIG_LEGACY_TRANSMIT_DONE
-  *
-  * Define to 1 if you want use legacy transmit done.
-  *
-  */
-#define OPENTHREAD_CONFIG_LEGACY_TRANSMIT_DONE 1
-
 #ifdef __cplusplus
 }
 #endif
