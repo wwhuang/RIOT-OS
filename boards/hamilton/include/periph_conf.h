@@ -135,15 +135,6 @@ extern "C" {
 #define TIMER_2_ISR         isr_rtc
 /** @} */
 
-/**
- * @name UART configuration
- * @{
- */
-static const uart_conf_t uart_config[] = {
-};
-
-#define UART_NUMOF          (0U)
-/** @} */
 
 /**
  * @name ADC configuration
