@@ -25,7 +25,6 @@
 #include "openthread/instance.h"
 #include "openthread/ip6.h"
 #include "openthread/platform/alarm-milli.h"
-#include "openthread/platform/alarm.h"
 #include "openthread/platform/uart.h"
 #include "openthread/tasklet.h"
 #include "openthread/thread.h"
