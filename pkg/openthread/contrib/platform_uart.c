@@ -147,7 +147,7 @@ void uart_handler(void* arg, char c) {
 /* OpenThread will call this for enabling UART (required for OpenThread's CLI)*/
 otError otPlatUartEnable(void)
 {
-#if UART_NUMOF
+#ifdef UART_NUMOF
     for (uint8_t i = 0; i < OPENTHREAD_NUMBER_OF_SERIAL_BUFFER; i++) {
         gSerialMessage[i] = (serial_msg_t*) &gSerialBuff[i];
         gSerialMessage[i]->serial_buffer_status = OPENTHREAD_SERIAL_BUFFER_STATUS_FREE;
@@ -168,7 +168,7 @@ otError otPlatUartDisable(void)
 /* OpenThread will call this for sending data through UART */
 otError otPlatUartSend(const uint8_t *aBuf, uint16_t aBufLength)
 {
-#if UART_NUMOF
+#ifdef UART_NUMOF
     uart_write(OPENTHREAD_UART_DEV, aBuf, aBufLength);
 
     /* Tell OpenThread the sending of UART is done */
