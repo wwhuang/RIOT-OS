@@ -223,6 +223,7 @@ static const spi_conf_t spi_config[] = {
 #define I2C_0_DEV           SERCOM3->I2CM
 #define I2C_0_IRQ           SERCOM3_IRQn
 #define I2C_0_ISR           isr_sercom3
+#define I2C_0_SERCOM_NUM    3
 /* I2C 0 GCLK */
 #define I2C_0_GCLK_ID       SERCOM3_GCLK_ID_CORE
 #define I2C_0_GCLK_ID_SLOW  SERCOM3_GCLK_ID_SLOW
