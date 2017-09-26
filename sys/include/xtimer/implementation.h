@@ -33,6 +33,12 @@ extern "C" {
 extern volatile uint32_t _xtimer_high_cnt;
 #endif
 
+#if (XTIMER_HZ < 1000000ul) && (STIMER_HZ >= 1000000ul)
+extern volatile uint32_t prev_s;
+extern volatile uint32_t prev_x;
+#endif
+
+
 /**
  * @brief IPC message type for xtimer msg callback
  */
@@ -116,7 +122,27 @@ static inline uint32_t _xtimer_now(void)
 
     return latched_high_cnt | now;
 #else
+#if (XTIMER_HZ < 1000000ul) && (STIMER_HZ >= 1000000ul)
+    if (prev_x == 0xffffffff) {
+        prev_s = _stimer_lltimer_now();
+        prev_x = _xtimer_lltimer_now();
+    } else {
+        uint32_t now_s = _stimer_lltimer_now();
+        uint32_t diff_s;
+        if (now_s >= prev_s) {
+            diff_s = now_s - prev_s;
+        } else {
+            diff_s = (0xFFFFFFFF-prev_s) + now_s;
+        }	
+        if (diff_s >= STIMER_HZ/XTIMER_HZ) {
+            prev_x += diff_s*XTIMER_HZ/STIMER_HZ;
+            prev_s = now_s;
+        }
+    }
+    return prev_x;
+#else
     return _xtimer_lltimer_now();
+#endif
 #endif
 }
 

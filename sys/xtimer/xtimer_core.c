@@ -12,6 +12,7 @@
  * @brief xtimer core functionality
  * @author Kaspar Schleiser <kaspar@schleiser.de>
  * @author Joakim Nohlgård <joakim.nohlgard@eistec.se>
+ * @author Hyung-Sin Kim <hs.kim@cs.berkeley.edu>
  * @}
  */
 
@@ -33,6 +34,11 @@ static volatile int _in_handler = 0;
 static volatile uint32_t _long_cnt = 0;
 #if XTIMER_MASK
 volatile uint32_t _xtimer_high_cnt = 0;
+#endif
+
+#if (XTIMER_HZ < 1000000ul) && (STIMER_HZ >= 1000000ul)
+volatile uint32_t prev_s = 0xffffffff;
+volatile uint32_t prev_x = 0xffffffff;
 #endif
 
 static inline void xtimer_spin_until(uint32_t value);
@@ -81,16 +87,27 @@ void xtimer_init(void)
     _lltimer_set(0xFFFFFFFF);
 }
 
+#if (XTIMER_HZ < 1000000ul) && (STIMER_HZ >= 1000000ul)
+/**
+ * @brief time difference of STIMER
+ */
+static uint32_t _stimer_diff(uint32_t prev, uint32_t now) {
+    if (now >= prev) {
+        return now - prev;
+    } else { 
+        return (0xFFFFFFFF-prev) + now;
+    }	
+}
+#endif
+
 static void _xtimer_now_internal(uint32_t *short_term, uint32_t *long_term)
 {
     uint32_t before, after, long_value;
-
     /* loop to cope with possible overflow of _xtimer_now() */
     do {
         before = _xtimer_now();
         long_value = _long_cnt;
         after = _xtimer_now();
-
     } while(before > after);
 
     *short_term = after;
@@ -184,7 +201,6 @@ int _xtimer_set_absolute(xtimer_t *timer, uint32_t target, uint32_t now)
     int res = 0;
 
     DEBUG("timer_set_absolute(): now=%" PRIu32 " target=%" PRIu32 "\n", now, target);
-
     timer->next = NULL;
     if ((target >= now) && ((target - XTIMER_BACKOFF) < now)) {
         /* backoff */
@@ -223,7 +239,6 @@ int _xtimer_set_absolute(xtimer_t *timer, uint32_t target, uint32_t now)
             }
         }
     }
-
     irq_restore(state);
 
     return res;
@@ -433,18 +448,6 @@ static void _next_period(void)
     _select_long_timers();
 }
 
-#if (XTIMER_HZ < 1000000ul) && (STIMER_HZ >= 1000000ul)
-/**
- * @brief time difference of STIMER
- */
-static uint32_t _stimer_diff(uint32_t prev, uint32_t now) {
-    if (now >= prev) {
-        return now - prev;
-    } else { 
-        return (0xFFFFFFFF-prev) + now;
-    }	
-}
-#endif
 
 /**
  * @brief main xtimer callback function
@@ -455,7 +458,6 @@ static void _timer_callback(void)
     uint32_t reference;
     uint32_t now;
 #if (XTIMER_HZ < 1000000ul) && (STIMER_HZ >= 1000000ul)
-    uint32_t prev_s;
     uint32_t now_s;
     uint32_t diff_s;
 #endif
@@ -489,7 +491,9 @@ static void _timer_callback(void)
         reference = _xtimer_lltimer_now();
     }
     now = reference;
-
+#if (XTIMER_HZ < 1000000ul) && (STIMER_HZ >= 1000000ul)
+    prev_x = now;
+#endif
 overflow:
 #if (XTIMER_HZ < 1000000ul) && (STIMER_HZ >= 1000000ul)
     prev_s = _stimer_lltimer_now();
@@ -506,6 +510,7 @@ overflow:
                 diff_s = _stimer_diff(prev_s, now_s);
             } while (diff_s < STIMER_HZ/XTIMER_HZ);
             now = now + diff_s*XTIMER_HZ/STIMER_HZ;
+            prev_x = now;
             prev_s = now_s;
 #else
             now = _xtimer_lltimer_now();
@@ -531,6 +536,7 @@ overflow:
         diff_s = _stimer_diff(prev_s, now_s);
         if (diff_s >= STIMER_HZ/XTIMER_HZ) {
             now = now + diff_s*XTIMER_HZ/STIMER_HZ;
+            prev_x = now;
             prev_s = now_s;
         }
 #else
@@ -560,11 +566,16 @@ overflow:
             now = _xtimer_lltimer_now();
             goto overflow;
         }
+        _in_handler = 0;
+
+        /* set low level timer */
+        _lltimer_set(next_target);
     }
-    else {
+    else if (overflow_list_head != NULL) {
         /* there's no timer planned for this timer period */
-        /* schedule callback on next overflow */
+        /* schedule callback on next overflow */  
         next_target = _xtimer_lltimer_mask(0xFFFFFFFF);
+      
         /* update current time */
 #if (XTIMER_HZ < 1000000ul) && (STIMER_HZ >= 1000000ul)
         now_s = _stimer_lltimer_now();
@@ -591,10 +602,13 @@ overflow:
                 goto overflow;
             }
         }
+        _in_handler = 0;
+
+        /* set low level timer */
+        _lltimer_set(next_target);
+    } else {
+        /* No need to set any timer */
+        _in_handler = 0;
     }
 
-    _in_handler = 0;
-
-    /* set low level timer */
-    _lltimer_set(next_target);
 }
