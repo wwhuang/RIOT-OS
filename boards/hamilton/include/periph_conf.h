@@ -203,7 +203,7 @@ static const spi_conf_t spi_config[] = {
         .mosi_pad = SPI_PAD_MOSI_2_SCK_3
     }
 };
-
+#define SPI_0_SERCOM_NUM     4
 #define SPI_NUMOF           (sizeof(spi_config) / sizeof(spi_config[0]))
 /** @} */
 
