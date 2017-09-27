@@ -23,6 +23,8 @@
 volatile DmacDescriptor descriptor_section[DMAC_EN_CHANNELS] __attribute__((aligned(16)));
 volatile DmacDescriptor writeback_section[DMAC_EN_CHANNELS] __attribute__((aligned(16)));
 
+uint8_t blocking_pm_mode = 0;
+
 /* DMA channel callbacks. */
 typedef struct {
     dma_callback_t callback;
@@ -77,11 +79,16 @@ void dma_channel_register_callback(dma_channel_t channel, dma_callback_t callbac
 }
 
 void dma_channel_set_current(dma_channel_t channel) {
+    if (channel == DMAC_CHANNEL_ADC) {
+        blocking_pm_mode = 0;
+    } else {
+        blocking_pm_mode = 2;
+    }
     DMAC_DEV->CHID.reg = channel & 0x0F;
 }
 
 void dma_channel_enable_current(void) {
-    pm_block(2);
+    pm_block(blocking_pm_mode);
     DMAC_DEV->CHINTENSET.reg = 0x07;
     DMAC_DEV->CHCTRLA.reg = 0x02;
 }
@@ -89,7 +96,7 @@ void dma_channel_enable_current(void) {
 void dma_channel_disable_current(void) {
     DMAC_DEV->CHCTRLA.reg = 0x00;
     DMAC_DEV->CHINTENCLR.reg = 0x07;
-    pm_unblock(2);
+    pm_unblock(blocking_pm_mode);
 }
 
 void dma_channel_reset_current(void) {

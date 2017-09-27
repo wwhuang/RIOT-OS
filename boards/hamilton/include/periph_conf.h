@@ -245,7 +245,10 @@ static const spi_conf_t spi_config[] = {
 #define DMAC_ISR          isr_dmac
 /* Number of enabled channels */
 #define DMAC_EN_CHANNELS    12
-/** @} */
+#define DMAC_CHANNEL_ADC    0
+#define DMAC_CHANNEL_I2C    1
+#define DMAC_CHANNEL_SPI_TX 2
+#define DMAC_CHANNEL_SPI_RX 3
 
 /**
  * @name Sensor configuration
