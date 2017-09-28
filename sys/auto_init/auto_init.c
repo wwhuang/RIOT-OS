@@ -347,6 +347,7 @@ void auto_init(void)
     extern void auto_init_adcxx1c(void);
     auto_init_adcxx1c();
 #endif
+<<<<<<< HEAD
 #ifdef MODULE_PUSH_BUTTON
     extern void auto_init_push_button(void);
     auto_init_push_button();
@@ -358,6 +359,10 @@ void auto_init(void)
 #ifdef MODULE_EKMB1101111
     extern void auto_init_ekmb1101111(void);
     auto_init_ekmb1101111();
+#endif
+#ifdef MODULE_APDS9007
+    extern void auto_init_apds9007(void);
+    auto_init_apds9007();
 #endif
 
 #endif /* MODULE_AUTO_INIT_SAUL */
