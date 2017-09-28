@@ -62,28 +62,28 @@ extern "C" {
  * @{
  */
 
-#define CLOCK_USE_PLL       (0)
-
-#ifndef CLOCK_USE_OSCULP32_DFLL
-#define CLOCK_USE_OSCULP32_DFLL       (1)
-#endif
+#define CLOCK_USE_PLL       (1)
 
 #if CLOCK_USE_PLL
-#define CLOCK_PLL_MUL       (47U)               // must be >= 31 & <= 95
-#define CLOCK_PLL_DIV       (1U)                // adjust to your need
+/* edit these values to adjust the PLL output frequency */
+#define CLOCK_PLL_MUL       (47U)               /* must be >= 31 & <= 95 */
+#define CLOCK_PLL_DIV       (1U)                /* adjust to your needs */
+/* generate the actual used core clock frequency */
 #define CLOCK_CORECLOCK     (((CLOCK_PLL_MUL + 1) * 1000000U) / CLOCK_PLL_DIV)
-#elif CLOCK_USE_OSCULP32_DFLL
-#define CLOCK_CORECLOCK      48000000U
-#define CLOCK_OSCULP32K      32768U
-#define CLOCK_8MHZ           (0)
-#define GEN2_ULP32K          (1)
+#elif CLOCK_USE_XOSC32_DFLL
+    /* Settings for 32 kHz external oscillator and 48 MHz DFLL */
+#define CLOCK_CORECLOCK     (48000000U)
+#define CLOCK_XOSC32K       (32768UL)
+#define CLOCK_8MHZ          (1)
+#define GEN2_ULP32K         (1)
 #else
-#define CLOCK_CORECLOCK      8000000U
-#define CLOCK_8MHZ           (1)
-#define CLOCK_DIV            (1)
-#define GEN2_ULP32K          (1)
+/* edit this value to your needs */
+#define CLOCK_DIV           (1U)
+/* generate the actual core clock frequency */
+#define CLOCK_CORECLOCK     (8000000 / CLOCK_DIV)
 #endif
 /** @} */
+
 
 
 /**
@@ -114,8 +114,8 @@ extern "C" {
  */
 #define TIMER_NUMOF         (1U)
 #define TIMER_0_EN          0
-#define TIMER_1_EN          0
-#define TIMER_2_EN          1
+#define TIMER_1_EN          1
+#define TIMER_2_EN          0
 
 /* Timer 0 configuration */
 #define TIMER_0_DEV         TC3->COUNT16
@@ -264,13 +264,6 @@ static const spi_conf_t spi_config[] = {
  * @{
  */
 #define RANDOM_NUMOF       (0U)
-/** @} */
-
-/**
- * @name Power management configuration for PM_Layered
- * @{
- */
-#define PM_BLOCKER_INITIAL  { .val_u32 = 0x00000000 }
 /** @} */
 
 #ifdef __cplusplus
