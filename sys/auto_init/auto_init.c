@@ -347,7 +347,6 @@ void auto_init(void)
     extern void auto_init_adcxx1c(void);
     auto_init_adcxx1c();
 #endif
-<<<<<<< HEAD
 #ifdef MODULE_PUSH_BUTTON
     extern void auto_init_push_button(void);
     auto_init_push_button();
