@@ -43,8 +43,13 @@ void at86rf2xx_setup(at86rf2xx_t *dev, const at86rf2xx_params_t *params)
     netdev->driver = &at86rf2xx_driver;
     /* initialize device descriptor */
     memcpy(&dev->params, params, sizeof(at86rf2xx_params_t));
+
+    /* Run the driver init */
+    netdev->driver->init(netdev);
+
     dev->idle_state = AT86RF2XX_STATE_TRX_OFF;
-    dev->state = AT86RF2XX_STATE_SLEEP;
+    //dev->state = AT86RF2XX_STATE_SLEEP; // take this shit out, since it's wrong.
+    dev->state = AT86RF2XX_STATE_TRX_OFF; // pretty sure this is accurate
     dev->pending_tx = 0;
 }
 
