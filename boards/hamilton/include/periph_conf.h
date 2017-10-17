@@ -115,7 +115,7 @@ extern "C" {
 #define TIMER_NUMOF         (1U)
 #define TIMER_0_EN          0
 #define TIMER_1_EN          1
-#define TIMER_2_EN          0
+#define TIMER_2_EN          1
 
 /* Timer 0 configuration */
 #define TIMER_0_DEV         TC3->COUNT16
