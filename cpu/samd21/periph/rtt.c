@@ -63,27 +63,42 @@ void rtt_init(void)
 
     /* RTC uses External 32,768KHz Oscillator because OSC32K isn't accurate
      * enough (p1075/1138). Also keep running in standby. */
-    SYSCTRL->XOSC32K.reg =  SYSCTRL_XOSC32K_ONDEMAND |
+/*    SYSCTRL->XOSC32K.reg =  SYSCTRL_XOSC32K_ONDEMAND |
                             SYSCTRL_XOSC32K_EN32K |
                             SYSCTRL_XOSC32K_XTALEN |
                             SYSCTRL_XOSC32K_STARTUP(6) |
+
 #if RTT_RUNSTDBY
                             SYSCTRL_XOSC32K_RUNSTDBY |
 #endif
                             SYSCTRL_XOSC32K_ENABLE;
+*/
 
+    // On second thought, WE ONLY HAVE AN INTERNAL OSC
+    // On third thought lets use the rc osc
+    
+    SYSCTRL->OSC32K.reg =  SYSCTRL_OSC32K_ONDEMAND |
+                            SYSCTRL_OSC32K_EN32K |
+                            SYSCTRL_OSC32K_STARTUP(6) |
+
+#if RTT_RUNSTDBY
+                            SYSCTRL_OSC32K_RUNSTDBY |
+#endif
+                            SYSCTRL_OSC32K_ENABLE;
+    
     /* Setup clock GCLK2 with divider 1 */
     GCLK->GENDIV.reg = GCLK_GENDIV_ID(2) | GCLK_GENDIV_DIV(1);
     while (GCLK->STATUS.bit.SYNCBUSY) {}
 
     /* Enable GCLK2 with XOSC32K as source. Use divider without modification
      * and keep running in standby. */
+        // changed to use internal rc osc
     GCLK->GENCTRL.reg = GCLK_GENCTRL_ID(2) |
                         GCLK_GENCTRL_GENEN |
 #if RTT_RUNSTDBY
                         GCLK_GENCTRL_RUNSTDBY |
 #endif
-                        GCLK_GENCTRL_SRC_XOSC32K;
+                        GCLK_GENCTRL_SRC_OSC32K; // changed to be internal rc osc
     while (GCLK->STATUS.bit.SYNCBUSY) {}
 
     /* Connect GCLK2 to RTC */
@@ -189,7 +204,7 @@ void rtt_poweroff(void)
     while (rtcMode0->STATUS.bit.SYNCBUSY) {}
 }
 
-void RTT_ISR(void)
+void isr_rtc(void)
 {
     RtcMode0 *rtcMode0 = &(RTT_DEV);
     uint8_t status = rtcMode0->INTFLAG.reg;
